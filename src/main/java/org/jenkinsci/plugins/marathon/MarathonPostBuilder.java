@@ -109,38 +109,26 @@ public class MarathonPostBuilder extends Notifier {
         return false;
     }
 
-    private void writeJsonToFile(final String filename, final JSONObject json) {
+    /**
+     * Write json to file filename.
+     *
+     * @param filename File name for new file
+     * @param json     JSON data
+     * @throws IOException If filename is a directory or a file operation encounters
+     *                     an issue
+     */
+    private void writeJsonToFile(final String filename, final JSONObject json) throws IOException {
         final File toFile = new File(filename);
 
-        if (toFile.exists() && toFile.isDirectory()) {
-            LOGGER.warning("File '" + filename + "' is a directory; not overwriting.");
-        } else {
-            Writer writer = null;
-            try {
-                writer = new BufferedWriter(new FileWriter(new File(filename)));
-                writer.write(json.toString(4));
-                LOGGER.info("Wrote JSON to '" + filename + "'");
-            } catch (IOException e) {
-                LOGGER.warning("Failed to write rendered JSON to '" + filename + "'");
-                LOGGER.warning(e.getLocalizedMessage());
-            } finally {
-                if (writer != null) {
-                    try {
-                        writer.flush();
-                    } catch (IOException e) {
-                        LOGGER.warning("Failed to flush JSON data to disk.");
-                    }
+        if (toFile.exists() && toFile.isDirectory())
+            throw new IOException("File '" + filename + "' is a directory; not overwriting.");
 
-                    try {
-                        writer.close();
-                    } catch (IOException e) {
-                        LOGGER.warning("Failed to close file.");
-                    }
-                }
-            }
-        }
+        final Writer writer = new BufferedWriter(new FileWriter(new File(filename)));
+        writer.write(json.toString(4));
+        writer.flush();
+        writer.close();
+        LOGGER.info("Wrote JSON to '" + filename + "'");
     }
-
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
@@ -167,7 +155,13 @@ public class MarathonPostBuilder extends Notifier {
                  * JSON is done being constructed; done merging marathon.json
                  * with Jenkins configuration and environment variables.
                  */
-                writeJsonToFile(Util.replaceMacro(WORKSPACE_MARATHON_RENDERED_JSON, envVars), marathonJson);
+                final String renderedFilename = Util.replaceMacro(WORKSPACE_MARATHON_RENDERED_JSON, envVars);
+                try {
+                    writeJsonToFile(renderedFilename, marathonJson);
+                } catch (IOException e) {
+                    LOGGER.warning("Exception encountered when writing rendered JSON to '" + renderedFilename + "'");
+                    LOGGER.warning(e.getLocalizedMessage());
+                }
 
                 build.setResult(Result.FAILURE);
             }
