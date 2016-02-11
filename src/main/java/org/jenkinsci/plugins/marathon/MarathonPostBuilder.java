@@ -4,8 +4,8 @@ import hudson.*;
 import hudson.model.*;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
-import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
+import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
 import jenkins.tasks.SimpleBuildStep;
 import mesosphere.marathon.client.Marathon;
@@ -36,18 +36,18 @@ import java.util.logging.Logger;
  *      appid: 'someid')
  * </pre>
  */
-public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
+public class MarathonPostBuilder extends Recorder implements SimpleBuildStep {
     @Extension
-    public static final  DescriptorImpl DESCRIPTOR                       = new DescriptorImpl();
-    public static final  String         WORKSPACE_MARATHON_JSON          = "marathon.json";
-    public static final  String         WORKSPACE_MARATHON_RENDERED_JSON = "marathon-rendered-${BUILD_NUMBER}.json";
-    public static final  String         JSON_CONTAINER_FIELD             = "container";
-    public static final  String         JSON_DOCKER_FIELD                = "docker";
-    public static final  String         JSON_DOCKER_IMAGE_FIELD          = "image";
-    public static final  String         JSON_ID_FIELD                    = "id";
-    public static final  String         JSON_URI_FIELD                   = "uris";
-    public static final  String         JSON_EMPTY_CONTAINER_OBJ         = "{\"type\": \"DOCKER\"}";
-    private static final Logger         LOGGER                           = Logger.getLogger(MarathonPostBuilder.class.getName());
+    public static final  DescriptorImpl DESCRIPTOR              = new DescriptorImpl();
+    public static final  String         MARATHON_JSON           = "marathon.json";
+    public static final  String         MARATHON_RENDERED_JSON  = "marathon-rendered-${BUILD_NUMBER}.json";
+    public static final  String         JSON_CONTAINER_FIELD    = "container";
+    public static final  String         JSON_DOCKER_FIELD       = "docker";
+    public static final  String         JSON_DOCKER_IMAGE_FIELD = "image";
+    public static final  String         JSON_ID_FIELD           = "id";
+    public static final  String         JSON_URI_FIELD          = "uris";
+    public static final  String         JSON_EMPTY_CONTAINER    = "{\"type\": \"DOCKER\"}";
+    private static final Logger         LOGGER                  = Logger.getLogger(MarathonPostBuilder.class.getName());
     private final String              url;
     private       List<MarathonUri>   uris;
     private       List<MarathonLabel> labels;
@@ -161,7 +161,7 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
             envVars.overrideAll(((AbstractBuild) build).getBuildVariables());
         }
 
-        final FilePath marathonFile = workspace.child(WORKSPACE_MARATHON_JSON);
+        final FilePath marathonFile = workspace.child(MARATHON_JSON);
 
         if ((buildSucceed || runFailed)
                 && marathonFile.exists() && !marathonFile.isDirectory()) {
@@ -182,7 +182,7 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
                  * with Jenkins configuration and environment variables.
                  */
                 final App    app      = buildApp(marathonJson);
-                final String fileName = Util.replaceMacro(WORKSPACE_MARATHON_RENDERED_JSON, envVars);
+                final String fileName = Util.replaceMacro(MARATHON_RENDERED_JSON, envVars);
 
                 if (fileName != null && fileName.trim().length() > 0) {
                     final FilePath renderedFilepath = workspace.child(fileName);
@@ -247,7 +247,7 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
         if (docker != null && docker.trim().length() > 0) {
             // get container -> docker -> image
             if (!marathonJson.has(JSON_CONTAINER_FIELD)) {
-                marathonJson.element(JSON_CONTAINER_FIELD, JSONObject.fromObject(JSON_EMPTY_CONTAINER_OBJ));
+                marathonJson.element(JSON_CONTAINER_FIELD, JSONObject.fromObject(JSON_EMPTY_CONTAINER));
             }
 
             final JSONObject container = marathonJson.getJSONObject(JSON_CONTAINER_FIELD);
