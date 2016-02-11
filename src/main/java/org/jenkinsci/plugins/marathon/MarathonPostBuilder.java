@@ -13,6 +13,10 @@ import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
+import mesosphere.marathon.client.Marathon;
+import mesosphere.marathon.client.MarathonClient;
+import mesosphere.marathon.client.model.v2.App;
+import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -117,17 +121,21 @@ public class MarathonPostBuilder extends Notifier {
      * @throws IOException If filename is a directory or a file operation encounters
      *                     an issue
      */
-    private void writeJsonToFile(final String filename, final JSONObject json) throws IOException {
+    private void writeJsonToFile(final String filename, final App json) throws IOException {
         final File toFile = new File(filename);
 
         if (toFile.exists() && toFile.isDirectory())
             throw new IOException("File '" + filename + "' is a directory; not overwriting.");
 
         final Writer writer = new BufferedWriter(new FileWriter(new File(filename)));
-        writer.write(json.toString(4));
+        writer.write(json.toString());
         writer.flush();
         writer.close();
         LOGGER.info("Wrote JSON to '" + filename + "'");
+    }
+
+    private App buildApp(final JSONObject json) {
+        return ModelUtils.GSON.fromJson(json.toString(), App.class);
     }
 
     @Override
@@ -155,14 +163,21 @@ public class MarathonPostBuilder extends Notifier {
                  * JSON is done being constructed; done merging marathon.json
                  * with Jenkins configuration and environment variables.
                  */
+                final App    app              = buildApp(marathonJson);
                 final String renderedFilename = Util.replaceMacro(WORKSPACE_MARATHON_RENDERED_JSON, envVars);
                 try {
-                    writeJsonToFile(renderedFilename, marathonJson);
+                    writeJsonToFile(renderedFilename, app);
                 } catch (IOException e) {
                     LOGGER.warning("Exception encountered when writing rendered JSON to '" + renderedFilename + "'");
                     LOGGER.warning(e.getLocalizedMessage());
                 }
 
+                // hit Marathon here
+                final Marathon marathon = MarathonClient.getInstance(marathonUrl);
+                marathon.updateApp(app.getId(), app);   // uses PUT
+
+                // only set the build result if something failed here,
+                // otherwise pass down the build result.
                 build.setResult(Result.FAILURE);
             }
         }
