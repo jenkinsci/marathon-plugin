@@ -13,29 +13,41 @@ import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
+import net.sf.json.JSONObject;
+import org.apache.commons.io.FileUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.servlet.ServletException;
-import java.io.IOException;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Created by colin on 2/4/16.
  */
 public class MarathonPostBuilder extends Notifier {
     @Extension
-    public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
-    private final String url;
-    private final String appid;
-    private final String docker;
-    private final List<MarathonUri> uris;
+    public static final  DescriptorImpl DESCRIPTOR                       = new DescriptorImpl();
+    public static final  String         WORKSPACE_MARATHON_JSON          = "${WORKSPACE}/marathon.json";
+    public static final  String         WORKSPACE_MARATHON_RENDERED_JSON = "${WORKSPACE}/marathon-rendered-${BUILD_NUMBER}.json";
+    public static final  String         JSON_CONTAINER_FIELD             = "container";
+    public static final  String         JSON_DOCKER_FIELD                = "docker";
+    public static final  String         JSON_DOCKER_IMAGE_FIELD          = "image";
+    public static final  String         JSON_ID_FIELD                    = "id";
+    public static final  String         JSON_URI_FIELD                   = "uris";
+    public static final  String         JSON_EMPTY_CONTAINER_OBJ         = "{\"type\": \"DOCKER\"}";
+    private static final Logger         LOGGER                           = Logger.getLogger(MarathonPostBuilder.class.getName());
+    private final String              url;
+    private final String              appid;
+    private final String              docker;
+    private final List<MarathonUri>   uris;
     private final List<MarathonLabel> labels;
-    private final boolean runFailed;
+    private final boolean             runFailed;
 
     @DataBoundConstructor
     public MarathonPostBuilder(final String url, final String appid, final String docker, final List<MarathonUri> uris, final List<MarathonLabel> labels, final boolean runFailed) {
@@ -97,26 +109,108 @@ public class MarathonPostBuilder extends Notifier {
         return false;
     }
 
+    private void writeJsonToFile(final String filename, final JSONObject json) {
+        final File toFile = new File(filename);
+
+        if (toFile.exists() && toFile.isDirectory()) {
+            LOGGER.warning("File '" + filename + "' is a directory; not overwriting.");
+        } else {
+            Writer writer = null;
+            try {
+                writer = new BufferedWriter(new FileWriter(new File(filename)));
+                writer.write(json.toString(4));
+                LOGGER.info("Wrote JSON to '" + filename + "'");
+            } catch (IOException e) {
+                LOGGER.warning("Failed to write rendered JSON to '" + filename + "'");
+                LOGGER.warning(e.getLocalizedMessage());
+            } finally {
+                if (writer != null) {
+                    try {
+                        writer.flush();
+                    } catch (IOException e) {
+                        LOGGER.warning("Failed to flush JSON data to disk.");
+                    }
+
+                    try {
+                        writer.close();
+                    } catch (IOException e) {
+                        LOGGER.warning("Failed to close file.");
+                    }
+                }
+            }
+        }
+    }
+
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         final boolean buildSucceed = build.getResult() == Result.SUCCESS;
+        final EnvVars envVars      = build.getEnvironment(listener);
+        final String  fileName     = Util.replaceMacro(WORKSPACE_MARATHON_JSON, envVars);
+        final File    marathonFile = new File(fileName);
 
-        if (buildSucceed) {
-            final EnvVars envVars = build.getEnvironment(listener);
-            final String appId = Util.replaceMacro(this.appid, envVars);
-            build.setResult(Result.FAILURE);
+        if ((buildSucceed || runFailed)
+                && marathonFile.exists() && !marathonFile.isDirectory()) {
+            final String     content      = FileUtils.readFileToString(marathonFile);
+            final JSONObject marathonJson = JSONObject.fromObject(content);
+
+            if (marathonJson != null && !marathonJson.isEmpty() && !marathonJson.isArray()) {
+                final String marathonUrl = Util.replaceMacro(this.url, envVars);
+
+                setJsonId(envVars, marathonJson);
+                setJsonDockerImage(envVars, marathonJson);
+                // TODO: Add checkbox to toggle removal vs merging
+                marathonJson.remove(JSON_URI_FIELD);
+                setJsonUris(envVars, marathonJson);
+
+                /*
+                 * JSON is done being constructed; done merging marathon.json
+                 * with Jenkins configuration and environment variables.
+                 */
+                writeJsonToFile(Util.replaceMacro(WORKSPACE_MARATHON_RENDERED_JSON, envVars), marathonJson);
+
+                build.setResult(Result.FAILURE);
+            }
         }
 
         return build.getResult() == Result.SUCCESS;
     }
 
+    private void setJsonUris(final EnvVars envVars, final JSONObject json) {
+        // update URIs with Jenkins environment variables
+        for (MarathonUri uri : uris) {
+            json.accumulate(JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), envVars));
+        }
+    }
+
+    private void setJsonId(final EnvVars envVars, final JSONObject marathonJson) {
+        if (appid != null)
+            marathonJson.put(JSON_ID_FIELD, Util.replaceMacro(this.appid, envVars));
+    }
+
+    private void setJsonDockerImage(final EnvVars envVars, final JSONObject marathonJson) {
+        if (docker != null) {
+            // get container -> docker -> image
+            if (!marathonJson.has(JSON_CONTAINER_FIELD)) {
+                marathonJson.element(JSON_CONTAINER_FIELD, JSONObject.fromObject(JSON_EMPTY_CONTAINER_OBJ));
+            }
+
+            final JSONObject container = marathonJson.getJSONObject(JSON_CONTAINER_FIELD);
+            if (!container.has(JSON_DOCKER_FIELD)) {
+                container.element(JSON_DOCKER_FIELD, new JSONObject());
+            }
+
+            final JSONObject docker = container.getJSONObject(JSON_DOCKER_FIELD);
+            docker.element(JSON_DOCKER_IMAGE_FIELD, Util.replaceMacro(this.docker, envVars));
+        }
+    }
+
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
         // use a HEAD request for HTTP URLs; this will prevent trying
         // to read a large image, page, or asset.
-        private final static String HTTP_REQUEST_METHOD = "HEAD";
+        private final static String HTTP_REQUEST_METHOD    = "HEAD";
         // HTTP timeout in milliseconds (5 seconds total)
-        private final static int HTTP_TIMEOUT_IN_MILLIS = 5000;
+        private final static int    HTTP_TIMEOUT_IN_MILLIS = 5000;
 
         public DescriptorImpl() {
             load();
@@ -161,7 +255,7 @@ public class MarathonPostBuilder extends Notifier {
             if (!isUrl(url))
                 return FormValidation.error("Not a valid URL");
             if (!returns200Response(url))
-                return FormValidation.error("URL did not return a 200 response.");
+                return FormValidation.warning("URL did not return a 200 response.");
             return FormValidation.ok();
         }
 
@@ -171,8 +265,6 @@ public class MarathonPostBuilder extends Notifier {
 
         public FormValidation doCheckAppid(@QueryParameter String value)
                 throws IOException, ServletException {
-            if (value.length() > 0 && value.length() < 3)
-                return FormValidation.warning("Isn't the name too short?");
             return FormValidation.ok();
         }
 
