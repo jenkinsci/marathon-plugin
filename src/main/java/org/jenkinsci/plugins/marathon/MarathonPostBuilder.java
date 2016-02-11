@@ -192,7 +192,7 @@ public class MarathonPostBuilder extends Notifier {
      * @param marathonJson Root JSON object
      */
     private void setJsonId(final EnvVars envVars, final JSONObject marathonJson) {
-        if (appid != null)
+        if (appid != null && appid.trim().length() > 0)
             marathonJson.put(JSON_ID_FIELD, Util.replaceMacro(this.appid, envVars));
     }
 
@@ -208,7 +208,7 @@ public class MarathonPostBuilder extends Notifier {
      * @param marathonJson Root JSON object
      */
     private void setJsonDockerImage(final EnvVars envVars, final JSONObject marathonJson) {
-        if (docker != null) {
+        if (docker != null && docker.trim().length() > 0) {
             // get container -> docker -> image
             if (!marathonJson.has(JSON_CONTAINER_FIELD)) {
                 marathonJson.element(JSON_CONTAINER_FIELD, JSONObject.fromObject(JSON_EMPTY_CONTAINER_OBJ));
