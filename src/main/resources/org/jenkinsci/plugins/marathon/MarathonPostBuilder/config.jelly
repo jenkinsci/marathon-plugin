@@ -24,11 +24,11 @@
                         <f:textbox field="uri" checkUrl="'descriptorByName/org.jenkinsci.plugins.marathon.MarathonPostBuilder/checkUri?value='+encode(this.value)"/>
                     </f:entry>
 
-                    <f:entry title="${%Artifact Options}">
-                        <f:checkbox field="executable" default="false" title="${%Set as executable}"/>
-                        <f:checkbox field="extract" default="true" title="${%Extract}"/>
-                        <f:checkbox field="cache" default="false" title="${%Cache}"/>
-                    </f:entry>
+                    <!--<f:entry title="${%Artifact Options}">-->
+                        <!--<f:checkbox field="executable" default="false" title="${%Set as executable}"/>-->
+                        <!--<f:checkbox field="extract" default="true" title="${%Extract}"/>-->
+                        <!--<f:checkbox field="cache" default="false" title="${%Cache}"/>-->
+                    <!--</f:entry>-->
 
                     <f:entry>
                         <div align="right">
