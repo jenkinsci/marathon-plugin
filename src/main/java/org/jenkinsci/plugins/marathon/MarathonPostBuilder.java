@@ -176,18 +176,43 @@ public class MarathonPostBuilder extends Notifier {
         return build.getResult() == Result.SUCCESS;
     }
 
+    /**
+     * Set the root "uris" JSON array with the URIs configured within
+     * the Jenkins UI. This handles transforming Environment Variables
+     * to their actual values.
+     *
+     * @param envVars Jenkins environment variables
+     * @param json    Root JSON object
+     */
     private void setJsonUris(final EnvVars envVars, final JSONObject json) {
-        // update URIs with Jenkins environment variables
         for (MarathonUri uri : uris) {
             json.accumulate(JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), envVars));
         }
     }
 
+    /**
+     * Set the root "id" value. This handles transforming Environment
+     * Variables to their actual values.
+     *
+     * @param envVars      Jenkins environment variables
+     * @param marathonJson Root JSON object
+     */
     private void setJsonId(final EnvVars envVars, final JSONObject marathonJson) {
         if (appid != null)
             marathonJson.put(JSON_ID_FIELD, Util.replaceMacro(this.appid, envVars));
     }
 
+    /**
+     * Set the docker "image" JSON value. This will create and set
+     * empty JSON objects for container and docker if they do not
+     * already exist within <code>marathonJson</code>.
+     * <p>
+     * This handles transforming Environment Variables to their
+     * actual values.
+     *
+     * @param envVars      Jenkins environment variables
+     * @param marathonJson Root JSON object
+     */
     private void setJsonDockerImage(final EnvVars envVars, final JSONObject marathonJson) {
         if (docker != null) {
             // get container -> docker -> image
