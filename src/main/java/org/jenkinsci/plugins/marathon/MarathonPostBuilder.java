@@ -12,9 +12,11 @@ import mesosphere.marathon.client.Marathon;
 import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
 import mesosphere.marathon.client.utils.ModelUtils;
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
@@ -28,7 +30,12 @@ import java.util.List;
 import java.util.logging.Logger;
 
 /**
- * Created by colin on 2/4/16.
+ * To run as a workflow step:
+ * <pre>
+ * step($class: 'org.jenkinsci.plugins.marathon.MarathonPostBuilder',
+ *      url: 'http://marathon-instance',
+ *      appid: 'someid')
+ * </pre>
  */
 public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
     @Extension
@@ -43,26 +50,18 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
     public static final  String         JSON_EMPTY_CONTAINER_OBJ         = "{\"type\": \"DOCKER\"}";
     private static final Logger         LOGGER                           = Logger.getLogger(MarathonPostBuilder.class.getName());
     private final String              url;
-    private final String              appid;
-    private final String              docker;
-    private final List<MarathonUri>   uris;
-    private final List<MarathonLabel> labels;
-    private final boolean             runFailed;
+    private       List<MarathonUri>   uris;
+    private       List<MarathonLabel> labels;
+    private       String              appid;
+    private       String              docker;
+    private       boolean             runFailed;
 
     @DataBoundConstructor
-    public MarathonPostBuilder(final String url, final String appid, final String docker, final List<MarathonUri> uris, final List<MarathonLabel> labels, final boolean runFailed) {
+    public MarathonPostBuilder(final String url) {
         this.url = url;
-        this.appid = appid;
-        this.docker = docker;
-        this.runFailed = runFailed;
 
         this.uris = new ArrayList<MarathonUri>(5);
-        if (uris != null && !uris.isEmpty())
-            this.uris.addAll(uris);
-
         this.labels = new ArrayList<MarathonLabel>(5);
-        if (labels != null && !labels.isEmpty())
-            this.labels.addAll(labels);
     }
 
     public String getUrl() {
@@ -77,20 +76,45 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
         return appid;
     }
 
+    @DataBoundSetter
+    public void setAppid(@Nonnull String appid) {
+        this.appid = appid;
+    }
+
     public String getDocker() {
         return docker;
+    }
+
+    @DataBoundSetter
+    public void setDocker(@Nonnull String docker) {
+        this.docker = docker;
     }
 
     public List<MarathonUri> getUris() {
         return uris;
     }
 
+    @DataBoundSetter
+    public void setUris(List<MarathonUri> uris) {
+        this.uris = uris;
+    }
+
     public List<MarathonLabel> getLabels() {
         return labels;
     }
 
+    @DataBoundSetter
+    public void setLabels(List<MarathonLabel> labels) {
+        this.labels = labels;
+    }
+
     public boolean getRunFailed() {
         return runFailed;
+    }
+
+    @DataBoundSetter
+    public void setRunFailed(boolean runFailed) {
+        this.runFailed = runFailed;
     }
 
     @Override
@@ -136,14 +160,17 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
 
     @Override
     public void perform(@Nonnull Run<?, ?> build, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws InterruptedException, IOException {
-        final boolean buildSucceed = build.getResult() == Result.SUCCESS;
+        final boolean buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
         final EnvVars envVars      = build.getEnvironment(listener);
-        final String  fileName     = Util.replaceMacro(WORKSPACE_MARATHON_JSON, envVars);
-        final File    marathonFile = new File(fileName);
 
         if (build instanceof AbstractBuild) {
             envVars.overrideAll(((AbstractBuild) build).getBuildVariables());
+        } else {
+            envVars.put("WORKSPACE", workspace.getRemote());
         }
+
+        final String fileName     = Util.replaceMacro(WORKSPACE_MARATHON_JSON, envVars);
+        final File   marathonFile = new File(fileName);
 
         if ((buildSucceed || runFailed)
                 && marathonFile.exists() && !marathonFile.isDirectory()) {
@@ -156,7 +183,7 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
                 setJsonId(envVars, marathonJson);
                 setJsonDockerImage(envVars, marathonJson);
                 // TODO: Add checkbox to toggle removal vs merging
-                marathonJson.remove(JSON_URI_FIELD);
+                marathonJson.element(JSON_URI_FIELD, new JSONArray());
                 setJsonUris(envVars, marathonJson);
 
                 /*
