@@ -1,18 +1,13 @@
 package org.jenkinsci.plugins.marathon;
 
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.Launcher;
-import hudson.Util;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
-import hudson.model.Result;
+import hudson.*;
+import hudson.model.*;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
+import jenkins.tasks.SimpleBuildStep;
 import mesosphere.marathon.client.Marathon;
 import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
@@ -22,6 +17,7 @@ import org.apache.commons.io.FileUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import javax.annotation.Nonnull;
 import javax.servlet.ServletException;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -34,7 +30,7 @@ import java.util.logging.Logger;
 /**
  * Created by colin on 2/4/16.
  */
-public class MarathonPostBuilder extends Notifier {
+public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
     @Extension
     public static final  DescriptorImpl DESCRIPTOR                       = new DescriptorImpl();
     public static final  String         WORKSPACE_MARATHON_JSON          = "${WORKSPACE}/marathon.json";
@@ -139,11 +135,15 @@ public class MarathonPostBuilder extends Notifier {
     }
 
     @Override
-    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+    public void perform(@Nonnull Run<?, ?> build, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws InterruptedException, IOException {
         final boolean buildSucceed = build.getResult() == Result.SUCCESS;
         final EnvVars envVars      = build.getEnvironment(listener);
         final String  fileName     = Util.replaceMacro(WORKSPACE_MARATHON_JSON, envVars);
         final File    marathonFile = new File(fileName);
+
+        if (build instanceof AbstractBuild) {
+            envVars.overrideAll(((AbstractBuild) build).getBuildVariables());
+        }
 
         if ((buildSucceed || runFailed)
                 && marathonFile.exists() && !marathonFile.isDirectory()) {
@@ -176,13 +176,10 @@ public class MarathonPostBuilder extends Notifier {
                 final Marathon marathon = MarathonClient.getInstance(marathonUrl);
                 marathon.updateApp(app.getId(), app);   // uses PUT
 
-                // only set the build result if something failed here,
-                // otherwise pass down the build result.
-                build.setResult(Result.FAILURE);
+                // use "throw new Exception" to fail build now.
+                throw new IOException("for fun");
             }
         }
-
-        return build.getResult() == Result.SUCCESS;
     }
 
     /**
