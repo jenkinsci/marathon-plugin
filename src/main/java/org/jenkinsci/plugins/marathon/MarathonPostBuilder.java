@@ -14,14 +14,13 @@ import mesosphere.marathon.client.model.v2.App;
 import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import org.apache.commons.io.FileUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import javax.servlet.ServletException;
-import java.io.*;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -40,8 +39,8 @@ import java.util.logging.Logger;
 public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
     @Extension
     public static final  DescriptorImpl DESCRIPTOR                       = new DescriptorImpl();
-    public static final  String         WORKSPACE_MARATHON_JSON          = "${WORKSPACE}/marathon.json";
-    public static final  String         WORKSPACE_MARATHON_RENDERED_JSON = "${WORKSPACE}/marathon-rendered-${BUILD_NUMBER}.json";
+    public static final  String         WORKSPACE_MARATHON_JSON          = "marathon.json";
+    public static final  String         WORKSPACE_MARATHON_RENDERED_JSON = "marathon-rendered-${BUILD_NUMBER}.json";
     public static final  String         JSON_CONTAINER_FIELD             = "container";
     public static final  String         JSON_DOCKER_FIELD                = "docker";
     public static final  String         JSON_DOCKER_IMAGE_FIELD          = "image";
@@ -141,16 +140,11 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
      * @throws IOException If filename is a directory or a file operation encounters
      *                     an issue
      */
-    private void writeJsonToFile(final String filename, final App json) throws IOException {
-        final File toFile = new File(filename);
-
-        if (toFile.exists() && toFile.isDirectory())
+    private void writeJsonToFile(final FilePath filename, final App json) throws IOException, InterruptedException {
+        if (filename.exists() && filename.isDirectory())
             throw new IOException("File '" + filename + "' is a directory; not overwriting.");
 
-        final Writer writer = new BufferedWriter(new FileWriter(new File(filename)));
-        writer.write(json.toString());
-        writer.flush();
-        writer.close();
+        filename.write(json.toString(), null);
         LOGGER.info("Wrote JSON to '" + filename + "'");
     }
 
@@ -165,16 +159,13 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
 
         if (build instanceof AbstractBuild) {
             envVars.overrideAll(((AbstractBuild) build).getBuildVariables());
-        } else {
-            envVars.put("WORKSPACE", workspace.getRemote());
         }
 
-        final String fileName     = Util.replaceMacro(WORKSPACE_MARATHON_JSON, envVars);
-        final File   marathonFile = new File(fileName);
+        final FilePath marathonFile = workspace.child(WORKSPACE_MARATHON_JSON);
 
         if ((buildSucceed || runFailed)
                 && marathonFile.exists() && !marathonFile.isDirectory()) {
-            final String     content      = FileUtils.readFileToString(marathonFile);
+            final String     content      = marathonFile.readToString();
             final JSONObject marathonJson = JSONObject.fromObject(content);
 
             if (marathonJson != null && !marathonJson.isEmpty() && !marathonJson.isArray()) {
@@ -190,13 +181,19 @@ public class MarathonPostBuilder extends Notifier implements SimpleBuildStep {
                  * JSON is done being constructed; done merging marathon.json
                  * with Jenkins configuration and environment variables.
                  */
-                final App    app              = buildApp(marathonJson);
-                final String renderedFilename = Util.replaceMacro(WORKSPACE_MARATHON_RENDERED_JSON, envVars);
-                try {
-                    writeJsonToFile(renderedFilename, app);
-                } catch (IOException e) {
-                    LOGGER.warning("Exception encountered when writing rendered JSON to '" + renderedFilename + "'");
-                    LOGGER.warning(e.getLocalizedMessage());
+                final App    app      = buildApp(marathonJson);
+                final String fileName = Util.replaceMacro(WORKSPACE_MARATHON_RENDERED_JSON, envVars);
+
+                if (fileName != null && fileName.trim().length() > 0) {
+                    final FilePath renderedFilepath = workspace.child(fileName);
+                    try {
+                        writeJsonToFile(renderedFilepath, app);
+                    } catch (IOException e) {
+                        LOGGER.warning("Exception encountered when writing rendered JSON to '" + renderedFilepath + "'");
+                        LOGGER.warning(e.getLocalizedMessage());
+                    }
+                } else {
+                    LOGGER.warning("Failed to create rendered JSON file.");
                 }
 
                 // hit Marathon here
