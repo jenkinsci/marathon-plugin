@@ -27,20 +27,11 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.github.mohitsoni</groupId>
+            <groupId>cc.roden</groupId>
             <artifactId>marathon-client</artifactId>
-            <version>0.4.2</version>
+            <version>0.4.9</version>
         </dependency>
     </dependencies>
-    <!-- If you want this to appear on the wiki page:
-    <developers>
-      <developer>
-        <id>bhacker</id>
-        <name>Bob Q. Hacker</name>
-        <email>bhacker@nowhere.net</email>
-      </developer>
-    </developers>
-    -->
     <!-- Assuming you want to host on @jenkinsci:
     <scm>
       <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>

@@ -11,6 +11,7 @@ import jenkins.tasks.SimpleBuildStep;
 import mesosphere.marathon.client.Marathon;
 import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
+import mesosphere.marathon.client.utils.MarathonException;
 import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -176,6 +177,7 @@ public class MarathonPostBuilder extends Recorder implements SimpleBuildStep {
                 // TODO: Add checkbox to toggle removal vs merging
                 marathonJson.element(JSON_URI_FIELD, new JSONArray());
                 setJsonUris(envVars, marathonJson);
+                setJsonLabels(envVars, marathonJson);
 
                 /*
                  * JSON is done being constructed; done merging marathon.json
@@ -198,11 +200,27 @@ public class MarathonPostBuilder extends Recorder implements SimpleBuildStep {
 
                 // hit Marathon here
                 final Marathon marathon = MarathonClient.getInstance(marathonUrl);
-                marathon.updateApp(app.getId(), app);   // uses PUT
+                try {
+                    // TODO: Make "force" configurable
+                    marathon.updateApp(app.getId(), app, false);   // uses PUT
+                } catch (MarathonException e) {
+                    // marathon problems.
+                    e.printStackTrace();
+                }
 
                 // use "throw new Exception" to fail build now.
-                throw new IOException("for fun");
+//                throw new IOException("for fun");
             }
+        }
+    }
+
+    private void setJsonLabels(EnvVars envVars, JSONObject marathonJson) {
+        if (!marathonJson.has("labels"))
+            marathonJson.element("labels", new JSONObject());
+
+        final JSONObject labelObject = marathonJson.getJSONObject("labels");
+        for (MarathonLabel label : labels) {
+            labelObject.element(label.getName(), label.getValue());
         }
     }
 
