@@ -1,13 +1,10 @@
-package org.jenkinsci.plugins.marathon;
+package org.jenkinsci.plugins.marathon.fields;
 
 import hudson.Extension;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
 
-/**
- * Created by colin on 2/5/16.
- */
 public class MarathonLabel extends AbstractDescribableImpl<MarathonLabel> {
     private final String name;
     private final String value;

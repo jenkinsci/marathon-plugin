@@ -1,20 +1,22 @@
 package org.jenkinsci.plugins.marathon;
 
-import hudson.*;
-import hudson.model.*;
+import hudson.EnvVars;
+import hudson.Extension;
+import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
-import jenkins.tasks.SimpleBuildStep;
-import mesosphere.marathon.client.Marathon;
-import mesosphere.marathon.client.MarathonClient;
-import mesosphere.marathon.client.model.v2.App;
 import mesosphere.marathon.client.utils.MarathonException;
-import mesosphere.marathon.client.utils.ModelUtils;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import org.jenkinsci.plugins.marathon.fields.MarathonLabel;
+import org.jenkinsci.plugins.marathon.fields.MarathonUri;
+import org.jenkinsci.plugins.marathon.interfaces.AppConfig;
+import org.jenkinsci.plugins.marathon.util.MarathonBuilderUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -29,26 +31,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-/**
- * To run as a workflow step:
- * <pre>
- * step($class: 'org.jenkinsci.plugins.marathon.MarathonPostBuilder',
- *      url: 'http://marathon-instance',
- *      appid: 'someid')
- * </pre>
- */
-public class MarathonPostBuilder extends Recorder implements SimpleBuildStep {
+public class MarathonPostBuilder extends Recorder implements AppConfig {
     @Extension
-    public static final  DescriptorImpl DESCRIPTOR              = new DescriptorImpl();
-    public static final  String         MARATHON_JSON           = "marathon.json";
-    public static final  String         MARATHON_RENDERED_JSON  = "marathon-rendered-${BUILD_NUMBER}.json";
-    public static final  String         JSON_CONTAINER_FIELD    = "container";
-    public static final  String         JSON_DOCKER_FIELD       = "docker";
-    public static final  String         JSON_DOCKER_IMAGE_FIELD = "image";
-    public static final  String         JSON_ID_FIELD           = "id";
-    public static final  String         JSON_URI_FIELD          = "uris";
-    public static final  String         JSON_EMPTY_CONTAINER    = "{\"type\": \"DOCKER\"}";
-    private static final Logger         LOGGER                  = Logger.getLogger(MarathonPostBuilder.class.getName());
+    public static final  DescriptorImpl DESCRIPTOR = new DescriptorImpl();
+    private static final Logger         LOGGER     = Logger.getLogger(MarathonPostBuilder.class.getName());
     private final String              url;
     private       List<MarathonUri>   uris;
     private       List<MarathonLabel> labels;
@@ -133,28 +119,8 @@ public class MarathonPostBuilder extends Recorder implements SimpleBuildStep {
         return false;
     }
 
-    /**
-     * Write json to file filename.
-     *
-     * @param filename File name for new file
-     * @param json     JSON data
-     * @throws IOException If filename is a directory or a file operation encounters
-     *                     an issue
-     */
-    private void writeJsonToFile(final FilePath filename, final App json) throws IOException, InterruptedException {
-        if (filename.exists() && filename.isDirectory())
-            throw new IOException("File '" + filename + "' is a directory; not overwriting.");
-
-        filename.write(json.toString(), null);
-        LOGGER.info("Wrote JSON to '" + filename + "'");
-    }
-
-    private App buildApp(final JSONObject json) {
-        return ModelUtils.GSON.fromJson(json.toString(), App.class);
-    }
-
     @Override
-    public void perform(@Nonnull Run<?, ?> build, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws InterruptedException, IOException {
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         final boolean buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
         final EnvVars envVars      = build.getEnvironment(listener);
 
@@ -162,120 +128,20 @@ public class MarathonPostBuilder extends Recorder implements SimpleBuildStep {
             envVars.overrideAll(((AbstractBuild) build).getBuildVariables());
         }
 
-        final FilePath marathonFile = workspace.child(MARATHON_JSON);
-
-        if ((buildSucceed || runFailed)
-                && marathonFile.exists() && !marathonFile.isDirectory()) {
-            final String     content      = marathonFile.readToString();
-            final JSONObject marathonJson = JSONObject.fromObject(content);
-
-            if (marathonJson != null && !marathonJson.isEmpty() && !marathonJson.isArray()) {
-                final String marathonUrl = Util.replaceMacro(this.url, envVars);
-
-                setJsonId(envVars, marathonJson);
-                setJsonDockerImage(envVars, marathonJson);
-                // TODO: Add checkbox to toggle removal vs merging
-                marathonJson.element(JSON_URI_FIELD, new JSONArray());
-                setJsonUris(envVars, marathonJson);
-                setJsonLabels(envVars, marathonJson);
-
-                /*
-                 * JSON is done being constructed; done merging marathon.json
-                 * with Jenkins configuration and environment variables.
-                 */
-                final App    app      = buildApp(marathonJson);
-                final String fileName = Util.replaceMacro(MARATHON_RENDERED_JSON, envVars);
-
-                if (fileName != null && fileName.trim().length() > 0) {
-                    final FilePath renderedFilepath = workspace.child(fileName);
-                    try {
-                        writeJsonToFile(renderedFilepath, app);
-                    } catch (IOException e) {
-                        LOGGER.warning("Exception encountered when writing rendered JSON to '" + renderedFilepath + "'");
-                        LOGGER.warning(e.getLocalizedMessage());
-                    }
-                } else {
-                    LOGGER.warning("Failed to create rendered JSON file.");
-                }
-
-                // hit Marathon here
-                final Marathon marathon = MarathonClient.getInstance(marathonUrl);
-                try {
-                    // TODO: Make "force" configurable
-                    marathon.updateApp(app.getId(), app, false);   // uses PUT
-                } catch (MarathonException e) {
-                    // marathon problems.
-                    e.printStackTrace();
-                }
-
-                // use "throw new Exception" to fail build now.
-//                throw new IOException("for fun");
-            }
-        }
-    }
-
-    private void setJsonLabels(EnvVars envVars, JSONObject marathonJson) {
-        if (!marathonJson.has("labels"))
-            marathonJson.element("labels", new JSONObject());
-
-        final JSONObject labelObject = marathonJson.getJSONObject("labels");
-        for (MarathonLabel label : labels) {
-            labelObject.element(label.getName(), label.getValue());
-        }
-    }
-
-    /**
-     * Set the root "uris" JSON array with the URIs configured within
-     * the Jenkins UI. This handles transforming Environment Variables
-     * to their actual values.
-     *
-     * @param envVars Jenkins environment variables
-     * @param json    Root JSON object
-     */
-    private void setJsonUris(final EnvVars envVars, final JSONObject json) {
-        for (MarathonUri uri : uris) {
-            json.accumulate(JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), envVars));
-        }
-    }
-
-    /**
-     * Set the root "id" value. This handles transforming Environment
-     * Variables to their actual values.
-     *
-     * @param envVars      Jenkins environment variables
-     * @param marathonJson Root JSON object
-     */
-    private void setJsonId(final EnvVars envVars, final JSONObject marathonJson) {
-        if (appid != null && appid.trim().length() > 0)
-            marathonJson.put(JSON_ID_FIELD, Util.replaceMacro(this.appid, envVars));
-    }
-
-    /**
-     * Set the docker "image" JSON value. This will create and set
-     * empty JSON objects for container and docker if they do not
-     * already exist within <code>marathonJson</code>.
-     * <p>
-     * This handles transforming Environment Variables to their
-     * actual values.
-     *
-     * @param envVars      Jenkins environment variables
-     * @param marathonJson Root JSON object
-     */
-    private void setJsonDockerImage(final EnvVars envVars, final JSONObject marathonJson) {
-        if (docker != null && docker.trim().length() > 0) {
-            // get container -> docker -> image
-            if (!marathonJson.has(JSON_CONTAINER_FIELD)) {
-                marathonJson.element(JSON_CONTAINER_FIELD, JSONObject.fromObject(JSON_EMPTY_CONTAINER));
+        if (buildSucceed || runFailed) {
+            try {
+                MarathonBuilderUtils.doPerform(build.getWorkspace(), envVars, this, LOGGER);
+            } catch (MarathonException e) {
+                // some marathon problem
             }
 
-            final JSONObject container = marathonJson.getJSONObject(JSON_CONTAINER_FIELD);
-            if (!container.has(JSON_DOCKER_FIELD)) {
-                container.element(JSON_DOCKER_FIELD, new JSONObject());
-            }
-
-            final JSONObject docker = container.getJSONObject(JSON_DOCKER_FIELD);
-            docker.element(JSON_DOCKER_IMAGE_FIELD, Util.replaceMacro(this.docker, envVars));
         }
+        return build.getResult() == Result.SUCCESS;
+    }
+
+    @Override
+    public String getAppId() {
+        return this.appid;
     }
 
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {

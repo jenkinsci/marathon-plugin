@@ -1,14 +1,10 @@
-package org.jenkinsci.plugins.marathon;
+package org.jenkinsci.plugins.marathon.fields;
 
 import hudson.Extension;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
-import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 
-/**
- * Created by colin on 2/5/16.
- */
 public class MarathonUri extends AbstractDescribableImpl<MarathonUri> {
     @Extension
     public final static DescriptorImpl DESCRIPTOR = new DescriptorImpl();

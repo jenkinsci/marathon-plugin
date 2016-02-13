@@ -27,6 +27,7 @@
 
     <properties>
         <marathon.client.version>0.4.9</marathon.client.version>
+        <pipeline.version>1.13</pipeline.version>
     </properties>
 
     <dependencies>
@@ -34,6 +35,12 @@
             <groupId>cc.roden</groupId>
             <artifactId>marathon-client</artifactId>
             <version>${marathon.client.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jenkins-ci.plugins.workflow</groupId>
+            <artifactId>workflow-step-api</artifactId>
+            <version>${pipeline.version}</version>
         </dependency>
     </dependencies>
     <!-- Assuming you want to host on @jenkinsci:
