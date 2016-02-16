@@ -37,15 +37,13 @@ Run `mvn hpi:hpi` to create an `hpi` file within the local `target` directory.
 This artifact can be uploaded as a plugin to a running Jenkins instance.
 
 ## workflow/Pipeline Plugin Support
-This plugin implements `SimpleBuildStep` and can be used within a workflow job.
+This plugin can be called as `marathon(...)` within a workflow job.
 
 ```
-step(
-    $class: 'org.jenkinsci.plugins.marathon.MarathonPostBuilder',
+marathon(
     url: 'http://marathon-instance',
     appid: 'someid',
     docker: 'mesosphere/jenkins-dev')
 ```
 
-Only `$class` and `url` are required, but this still depends on a local
-"marathon.json" file.
+`url` is required and this still depends on a local "marathon.json" file.
