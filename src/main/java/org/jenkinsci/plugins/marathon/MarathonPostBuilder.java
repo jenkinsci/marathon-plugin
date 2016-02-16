@@ -123,10 +123,7 @@ public class MarathonPostBuilder extends Recorder implements AppConfig {
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         final boolean buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
         final EnvVars envVars      = build.getEnvironment(listener);
-
-        if (build instanceof AbstractBuild) {
-            envVars.overrideAll(((AbstractBuild) build).getBuildVariables());
-        }
+        envVars.overrideAll(build.getBuildVariables());
 
         if (buildSucceed || runFailed) {
             try {
