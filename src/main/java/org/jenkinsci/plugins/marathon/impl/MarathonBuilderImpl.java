@@ -159,11 +159,6 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         return toFile(null);
     }
 
-    @Override
-    public String toString() {
-        return app.toString();
-    }
-
     private JSONObject setId() {
         if (config.getAppId() != null && config.getAppId().trim().length() > 0)
             json.put(MarathonBuilderUtils.JSON_ID_FIELD, Util.replaceMacro(config.getAppId(), envVars));

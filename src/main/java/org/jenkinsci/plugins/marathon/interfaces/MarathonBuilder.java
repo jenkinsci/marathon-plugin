@@ -41,6 +41,4 @@ public abstract class MarathonBuilder {
     public abstract MarathonBuilder toFile(final String filename) throws InterruptedException;
 
     public abstract MarathonBuilder toFile() throws InterruptedException;
-
-    public abstract String toString();
 }
