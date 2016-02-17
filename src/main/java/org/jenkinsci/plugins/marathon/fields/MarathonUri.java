@@ -19,6 +19,12 @@ public class MarathonUri extends AbstractDescribableImpl<MarathonUri> {
         return uri;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        return ((obj instanceof MarathonUri)
+                && ((MarathonUri) obj).getUri().equals(this.getUri()));
+    }
+
     public static class DescriptorImpl extends Descriptor<MarathonUri> {
         public String getDisplayName() {
             return "Mesos URI";

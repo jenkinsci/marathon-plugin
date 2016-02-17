@@ -23,11 +23,16 @@ public class MarathonLabel extends AbstractDescribableImpl<MarathonLabel> {
         return value;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        return ((obj instanceof MarathonLabel)
+                && ((MarathonLabel) obj).getName().equals(this.getName()));
+    }
+
     @Extension
     public static class DescriptorImpl extends Descriptor<MarathonLabel> {
         public String getDisplayName() {
             return "";
         }
     }
-
 }
