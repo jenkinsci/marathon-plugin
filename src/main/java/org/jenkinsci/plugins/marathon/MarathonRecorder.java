@@ -16,7 +16,7 @@ import mesosphere.marathon.client.utils.MarathonException;
 import org.jenkinsci.plugins.marathon.fields.MarathonLabel;
 import org.jenkinsci.plugins.marathon.fields.MarathonUri;
 import org.jenkinsci.plugins.marathon.interfaces.AppConfig;
-import org.jenkinsci.plugins.marathon.util.MarathonBuilderUtils;
+import org.jenkinsci.plugins.marathon.interfaces.MarathonBuilder;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -31,10 +31,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-public class MarathonPostBuilder extends Recorder implements AppConfig {
+public class MarathonRecorder extends Recorder implements AppConfig {
     @Extension
     public static final  DescriptorImpl DESCRIPTOR = new DescriptorImpl();
-    private static final Logger         LOGGER     = Logger.getLogger(MarathonPostBuilder.class.getName());
+    private static final Logger         LOGGER     = Logger.getLogger(MarathonRecorder.class.getName());
     private final String              url;
     private       List<MarathonUri>   uris;
     private       List<MarathonLabel> labels;
@@ -43,15 +43,11 @@ public class MarathonPostBuilder extends Recorder implements AppConfig {
     private       boolean             runFailed;
 
     @DataBoundConstructor
-    public MarathonPostBuilder(final String url) {
+    public MarathonRecorder(final String url) {
         this.url = url;
 
         this.uris = new ArrayList<MarathonUri>(5);
         this.labels = new ArrayList<MarathonLabel>(5);
-    }
-
-    public String getUrl() {
-        return url;
     }
 
     public boolean isRunFailed() {
@@ -65,33 +61,6 @@ public class MarathonPostBuilder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setAppid(@Nonnull String appid) {
         this.appid = appid;
-    }
-
-    public String getDocker() {
-        return docker;
-    }
-
-    @DataBoundSetter
-    public void setDocker(@Nonnull String docker) {
-        this.docker = docker;
-    }
-
-    public List<MarathonUri> getUris() {
-        return uris;
-    }
-
-    @DataBoundSetter
-    public void setUris(List<MarathonUri> uris) {
-        this.uris = uris;
-    }
-
-    public List<MarathonLabel> getLabels() {
-        return labels;
-    }
-
-    @DataBoundSetter
-    public void setLabels(List<MarathonLabel> labels) {
-        this.labels = labels;
     }
 
     public boolean getRunFailed() {
@@ -120,18 +89,22 @@ public class MarathonPostBuilder extends Recorder implements AppConfig {
     }
 
     @Override
-    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener)
+            throws InterruptedException, IOException {
         final boolean buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
         final EnvVars envVars      = build.getEnvironment(listener);
         envVars.overrideAll(build.getBuildVariables());
 
         if (buildSucceed || runFailed) {
             try {
-                MarathonBuilderUtils.doPerform(build.getWorkspace(), envVars, this, LOGGER);
+                MarathonBuilder.getBuilder(this)
+                        .setEnvVars(envVars).setWorkspace(build.getWorkspace())
+                        .read()     // null means default
+                        .build().toFile()
+                        .update();
             } catch (MarathonException e) {
                 // some marathon problem
             }
-
         }
         return build.getResult() == Result.SUCCESS;
     }
@@ -139,6 +112,37 @@ public class MarathonPostBuilder extends Recorder implements AppConfig {
     @Override
     public String getAppId() {
         return this.appid;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public String getDocker() {
+        return docker;
+    }
+
+    @DataBoundSetter
+    public void setDocker(@Nonnull String docker) {
+        this.docker = docker;
+    }
+
+    public List<MarathonUri> getUris() {
+        return uris;
+    }
+
+    @DataBoundSetter
+    public void setUris(List<MarathonUri> uris) {
+        this.uris = uris;
+    }
+
+    public List<MarathonLabel> getLabels() {
+        return labels;
+    }
+
+    @DataBoundSetter
+    public void setLabels(List<MarathonLabel> labels) {
+        this.labels = labels;
     }
 
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
