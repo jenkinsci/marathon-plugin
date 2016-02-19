@@ -13,6 +13,8 @@ import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
 import mesosphere.marathon.client.utils.MarathonException;
+import org.jenkinsci.plugins.marathon.exceptions.MarathonFileInvalidException;
+import org.jenkinsci.plugins.marathon.exceptions.MarathonFileMissingException;
 import org.jenkinsci.plugins.marathon.fields.MarathonLabel;
 import org.jenkinsci.plugins.marathon.fields.MarathonUri;
 import org.jenkinsci.plugins.marathon.interfaces.AppConfig;
@@ -97,14 +99,41 @@ public class MarathonRecorder extends Recorder implements AppConfig {
 
         if (buildSucceed || runFailed) {
             try {
-                MarathonBuilder.getBuilder(this)
+                final MarathonBuilder builder = MarathonBuilder.getBuilder(this)
                         .setEnvVars(envVars).setWorkspace(build.getWorkspace())
                         .read()     // null means default
-                        .build().toFile()
-                        .update();
-            } catch (MarathonException e) {
-                // some marathon problem
+                        .build().toFile();
+
+                // update & possible retry
+                boolean retry      = true;
+                int     retryCount = 0;
+                while (retry && retryCount < 3) {
+                    try {
+                        builder.update();
+                        retry = false;
+                    } catch (MarathonException e) {
+                        // 4xx and 5xx errors are build failures
+                        if (e.getStatus() >= 400 && e.getStatus() < 600) {
+                            build.setResult(Result.FAILURE);
+                            LOGGER.warning(e.getMessage());
+                            retry = false;
+                        } else {
+                            // retry.
+                            retryCount++;
+                            Thread.sleep(2000L);    // 2 seconds
+                        }
+                    }
+                }
+            } catch (MarathonFileMissingException e) {
+                // "marathon.json" or whatever does not exist.
+                build.setResult(Result.FAILURE);
+                LOGGER.warning(e.getMessage());
+            } catch (MarathonFileInvalidException e) {
+                // file is a directory or something.
+                build.setResult(Result.FAILURE);
+                LOGGER.warning(e.getMessage());
             }
+
         }
         return build.getResult() == Result.SUCCESS;
     }

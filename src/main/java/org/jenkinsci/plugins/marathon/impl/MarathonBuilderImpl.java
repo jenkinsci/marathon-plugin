@@ -10,6 +10,8 @@ import mesosphere.marathon.client.utils.MarathonException;
 import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import org.jenkinsci.plugins.marathon.exceptions.MarathonFileInvalidException;
+import org.jenkinsci.plugins.marathon.exceptions.MarathonFileMissingException;
 import org.jenkinsci.plugins.marathon.fields.MarathonLabel;
 import org.jenkinsci.plugins.marathon.fields.MarathonUri;
 import org.jenkinsci.plugins.marathon.interfaces.AppConfig;
@@ -18,10 +20,8 @@ import org.jenkinsci.plugins.marathon.util.MarathonBuilderUtils;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class MarathonBuilderImpl extends MarathonBuilder {
-    private static final Logger LOGGER = Logger.getLogger(MarathonBuilderImpl.class.getName());
     private AppConfig  config;
     private JSONObject json;
     private App        app;
@@ -77,27 +77,23 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder read(final String filename) throws IOException, InterruptedException {
+    public MarathonBuilder read(final String filename) throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
         final FilePath marathonFile = workspace.child(filename != null ? filename : MarathonBuilderUtils.MARATHON_JSON);
 
         if (!marathonFile.exists()) {
-            final String errorMsg = "File '" + marathonFile.getName() + "' does not exist.";
-            LOGGER.warning(errorMsg);
-            throw new IOException(errorMsg);
+            throw new MarathonFileMissingException(marathonFile.getName());
         } else if (marathonFile.isDirectory()) {
             final String errorMsg = "File '" + marathonFile.getName() + "' is a directory.";
-            LOGGER.warning(errorMsg);
-            throw new IOException(errorMsg);
+            throw new MarathonFileInvalidException(errorMsg);
         }
 
         final String content = marathonFile.readToString();
         this.json = JSONObject.fromObject(content);
-        LOGGER.fine("Read contents of '" + marathonFile.getName() + "'");
         return this;
     }
 
     @Override
-    public MarathonBuilder read() throws IOException, InterruptedException {
+    public MarathonBuilder read() throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
         return read(null);
     }
 
@@ -133,29 +129,22 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         setLabels();
 
         this.app = ModelUtils.GSON.fromJson(json.toString(), App.class);
-        LOGGER.fine("Built Marathon app from JSON");
         return this;
     }
 
     @Override
-    public MarathonBuilder toFile(final String filename) throws InterruptedException {
+    public MarathonBuilder toFile(final String filename) throws InterruptedException, IOException, MarathonFileInvalidException {
         final FilePath renderedFilepath = workspace.child(
                 Util.replaceMacro(filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON, envVars));
-        try {
-            if (renderedFilepath.exists() && renderedFilepath.isDirectory())
-                throw new IOException("File '" + filename + "' is a directory; not overwriting.");
+        if (renderedFilepath.exists() && renderedFilepath.isDirectory())
+            throw new MarathonFileInvalidException("File '" + filename + "' is a directory; not overwriting.");
 
-            renderedFilepath.write(json.toString(), null);
-            LOGGER.fine("Wrote JSON to '" + renderedFilepath + "'");
-        } catch (IOException e) {
-            LOGGER.warning("Exception encountered when writing rendered JSON to '" + renderedFilepath + "'");
-            LOGGER.warning(e.getLocalizedMessage());
-        }
+        renderedFilepath.write(json.toString(), null);
         return this;
     }
 
     @Override
-    public MarathonBuilder toFile() throws InterruptedException {
+    public MarathonBuilder toFile() throws InterruptedException, IOException, MarathonFileInvalidException {
         return toFile(null);
     }
 
