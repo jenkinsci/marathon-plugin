@@ -20,14 +20,15 @@ import org.kohsuke.stapler.DataBoundSetter;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private final String              url;
-    private       List<MarathonUri>   marathonUris;
     private       List<String>        uris;
-    private       List<MarathonLabel> labels;
+    private       Map<String, String> labels;   // this does not work :(
     private       String              appid;
     private       String              docker;
 
@@ -35,8 +36,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     public MarathonStep(final String url) {
         this.url = url;
         this.uris = new ArrayList<String>(5);
-        this.marathonUris = new ArrayList<MarathonUri>(5);
-        this.labels = new ArrayList<MarathonLabel>(5);
+        this.labels = new HashMap<String, String>(5);
     }
 
     @Override
@@ -58,26 +58,28 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     public List<MarathonUri> getUris() {
+        final List<MarathonUri> marathonUris = new ArrayList<MarathonUri>(this.uris.size());
+        for (final String u : this.uris) {
+            marathonUris.add(new MarathonUri(u));
+        }
         return marathonUris;
     }
 
     @DataBoundSetter
     public void setUris(List<String> uris) {
-        for (final String s : uris) {
-            final MarathonUri marathonUri = new MarathonUri(s);
-            if (!marathonUris.contains(marathonUri)) {
-                marathonUris.add(marathonUri);
-            }
-        }
         this.uris = uris;
     }
 
     public List<MarathonLabel> getLabels() {
-        return labels;
+        final List<MarathonLabel> marathonLabels = new ArrayList<MarathonLabel>(this.labels.size());
+        for (final Map.Entry<String, String> label : this.labels.entrySet()) {
+            marathonLabels.add(new MarathonLabel(label.getKey(), label.getValue()));
+        }
+        return marathonLabels;
     }
 
     @DataBoundSetter
-    public void setLabels(List<MarathonLabel> labels) {
+    public void setLabels(Map<String, String> labels) {
         this.labels = labels;
     }
 
