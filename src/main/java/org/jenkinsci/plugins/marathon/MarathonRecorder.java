@@ -43,6 +43,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       String              appid;
     private       String              docker;
     private       boolean             runFailed;
+    private       String              filename;
 
     @DataBoundConstructor
     public MarathonRecorder(final String url) {
@@ -70,8 +71,18 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setRunFailed(boolean runFailed) {
+    public void setRunFailed(final boolean runFailed) {
         this.runFailed = runFailed;
+    }
+
+    public String getFilename() {
+        return filename;
+    }
+
+    @DataBoundSetter
+    public void setFilename(@Nonnull final String filename) {
+        if (filename.trim().length() > 0)
+            this.filename = filename;
     }
 
     @Override
@@ -101,7 +112,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             try {
                 final MarathonBuilder builder = MarathonBuilder.getBuilder(this)
                         .setEnvVars(envVars).setWorkspace(build.getWorkspace())
-                        .read()     // null means default
+                        .read(this.filename)
                         .build().toFile();
 
                 // update & possible retry

@@ -31,6 +31,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       Map<String, String> labels;   // this does not work :(
     private       String              appid;
     private       String              docker;
+    private       String              filename;
 
     @DataBoundConstructor
     public MarathonStep(final String url) {
@@ -92,6 +93,16 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         this.appid = appid;
     }
 
+    public String getFilename() {
+        return filename;
+    }
+
+    @DataBoundSetter
+    public void setFilename(@Nonnull final String filename) {
+        if (filename.trim().length() > 0)
+            this.filename = filename;
+    }
+
     @Extension
     public static class DescriptorImpl extends AbstractStepDescriptorImpl {
         public DescriptorImpl() {
@@ -133,7 +144,14 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
         @Override
         protected Void run() throws Exception {
-            MarathonBuilder.getBuilder(step).setEnvVars(envVars).setWorkspace(ws).read().build().toFile().update();
+            MarathonBuilder
+                    .getBuilder(step)
+                    .setEnvVars(envVars)
+                    .setWorkspace(ws)
+                    .read(step.filename)
+                    .build()
+                    .toFile()
+                    .update();
             return null;
         }
     }
