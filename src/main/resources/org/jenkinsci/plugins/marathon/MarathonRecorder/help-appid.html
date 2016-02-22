@@ -1,4 +1,21 @@
 <div>
-    The Marathon <i>Application Id</i> without the slash (<i>/</i>) prefix.
-    Leave blank to use value in <i>marathon.json</i>.
+    <p>
+        This parameter will overwrite the <code>id</code> field in the Marathon JSON file ("Local File" from above).
+        The excerpt below is taken from the
+        <a href="https://mesosphere.github.io/marathon/docs/rest-api.html#post-v2-apps" target="_blank">
+            Marathon REST API documentation</a>.
+    </p>
+    <blockquote>
+        <p>
+            Unique identifier for the app consisting of a series of names separated by slashes. Each name must be at
+            least 1 character and may only contain digits (<code>0-9</code>), dashes (<code>-</code>), dots
+            (<code>.</code>), and lowercase letters (<code>a-z</code>). The
+            name may not begin or end with a dash.
+        </p>
+
+        <p>
+            The allowable format is represented by the following regular expression
+            <code>^(([a-z0-9]|[a-z0-9][a-z0-9\\-]*[a-z0-9])\\.)*([a-z0-9]|[a-z0-9][a-z0-9\\-]*[a-z0-9])$</code>
+        </p>
+    </blockquote>
 </div>

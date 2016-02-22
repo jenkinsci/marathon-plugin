@@ -20,7 +20,7 @@
         <f:textbox />
     </f:entry>
 
-    <f:entry title="${%URIs}">
+    <f:entry title="${%URIs}" field="uris">
             <f:repeatable add="${%Add URI}" field="uris" noAddButton="false" minimum="0">
                 <fieldset>
                 <table width="100%">
@@ -45,7 +45,7 @@
 
     </f:entry>
 
-    <f:entry title="${%Labels}">
+    <f:entry title="${%Labels}" field="labels">
             <f:repeatable add="${%Add Label}" field="labels" noAddButton="false" minimum="0">
                 <fieldset>
                     <table width="100%">
