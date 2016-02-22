@@ -1,12 +1,12 @@
-package org.jenkinsci.plugins.marathon.interfaces;
+package com.mesosphere.velocity.marathon.interfaces;
 
+import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
 import hudson.EnvVars;
 import hudson.FilePath;
 import mesosphere.marathon.client.utils.MarathonException;
 import net.sf.json.JSONObject;
-import org.jenkinsci.plugins.marathon.exceptions.MarathonFileInvalidException;
-import org.jenkinsci.plugins.marathon.exceptions.MarathonFileMissingException;
-import org.jenkinsci.plugins.marathon.impl.MarathonBuilderImpl;
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 
 import java.io.IOException;
 

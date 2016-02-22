@@ -1,7 +1,7 @@
-package org.jenkinsci.plugins.marathon.interfaces;
+package com.mesosphere.velocity.marathon.interfaces;
 
-import org.jenkinsci.plugins.marathon.fields.MarathonLabel;
-import org.jenkinsci.plugins.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
 
 import java.util.List;
 

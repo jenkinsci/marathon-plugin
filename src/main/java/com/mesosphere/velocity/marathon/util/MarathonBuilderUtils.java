@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.marathon.util;
+package com.mesosphere.velocity.marathon.util;
 
 public class MarathonBuilderUtils {
     public static final String MARATHON_JSON           = "marathon.json";

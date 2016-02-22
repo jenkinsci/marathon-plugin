@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.marathon.exceptions;
+package com.mesosphere.velocity.marathon.exceptions;
 
 public class MarathonFileMissingException extends Exception {
     private String filename;

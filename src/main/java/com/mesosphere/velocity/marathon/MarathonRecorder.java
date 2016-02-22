@@ -1,5 +1,11 @@
-package org.jenkinsci.plugins.marathon;
+package com.mesosphere.velocity.marathon;
 
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.interfaces.AppConfig;
+import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Launcher;
@@ -13,12 +19,6 @@ import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
 import mesosphere.marathon.client.utils.MarathonException;
-import org.jenkinsci.plugins.marathon.exceptions.MarathonFileInvalidException;
-import org.jenkinsci.plugins.marathon.exceptions.MarathonFileMissingException;
-import org.jenkinsci.plugins.marathon.fields.MarathonLabel;
-import org.jenkinsci.plugins.marathon.fields.MarathonUri;
-import org.jenkinsci.plugins.marathon.interfaces.AppConfig;
-import org.jenkinsci.plugins.marathon.interfaces.MarathonBuilder;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;

@@ -1,15 +1,15 @@
-package org.jenkinsci.plugins.marathon;
+package com.mesosphere.velocity.marathon;
 
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.interfaces.AppConfig;
+import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import org.jenkinsci.plugins.marathon.fields.MarathonLabel;
-import org.jenkinsci.plugins.marathon.fields.MarathonUri;
-import org.jenkinsci.plugins.marathon.interfaces.AppConfig;
-import org.jenkinsci.plugins.marathon.interfaces.MarathonBuilder;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;

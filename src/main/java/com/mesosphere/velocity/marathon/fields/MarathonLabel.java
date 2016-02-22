@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.marathon.fields;
+package com.mesosphere.velocity.marathon.fields;
 
 import hudson.Extension;
 import hudson.model.AbstractDescribableImpl;

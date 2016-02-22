@@ -25,7 +25,7 @@
                 <fieldset>
                 <table width="100%">
                     <f:entry>
-                        <f:textbox field="uri" checkUrl="'descriptorByName/org.jenkinsci.plugins.marathon.MarathonRecorder/checkUri?value='+encode(this.value)"/>
+                        <f:textbox field="uri" checkUrl="'descriptorByName/com.mesosphere.velocity.marathon.MarathonRecorder/checkUri?value='+encode(this.value)"/>
                     </f:entry>
 
                     <!--<f:entry title="${%Artifact Options}">-->
@@ -50,11 +50,11 @@
                 <fieldset>
                     <table width="100%">
                         <f:entry title="${%Name}" field="name">
-                            <f:textbox checkUrl="'descriptorByName/org.jenkinsci.plugins.marathon.MarathonRecorder/checkLabelName?value='+encode(this.value)" />
+                            <f:textbox checkUrl="'descriptorByName/com.mesosphere.velocity.marathon.MarathonRecorder/checkLabelName?value='+encode(this.value)" />
                         </f:entry>
 
                         <f:entry title="${%Value}" field="value">
-                            <f:textbox checkUrl="'descriptorByName/org.jenkinsci.plugins.marathon.MarathonRecorder/checkLabelValue?value='+encode(this.value)" />
+                            <f:textbox checkUrl="'descriptorByName/com.mesosphere.velocity.marathon.MarathonRecorder/checkLabelValue?value='+encode(this.value)" />
                         </f:entry>
 
                         <f:entry>

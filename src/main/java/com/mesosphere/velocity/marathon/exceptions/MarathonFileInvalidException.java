@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.marathon.exceptions;
+package com.mesosphere.velocity.marathon.exceptions;
 
 public class MarathonFileInvalidException extends Exception {
     private String message;
