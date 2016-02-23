@@ -42,7 +42,6 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       List<MarathonLabel> labels;
     private       String              appid;
     private       String              docker;
-    private       boolean             runFailed;
     private       String              filename;
 
     @DataBoundConstructor
@@ -53,10 +52,6 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         this.labels = new ArrayList<MarathonLabel>(5);
     }
 
-    public boolean isRunFailed() {
-        return runFailed;
-    }
-
     public String getAppid() {
         return appid;
     }
@@ -64,15 +59,6 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setAppid(@Nonnull String appid) {
         this.appid = appid;
-    }
-
-    public boolean getRunFailed() {
-        return runFailed;
-    }
-
-    @DataBoundSetter
-    public void setRunFailed(final boolean runFailed) {
-        this.runFailed = runFailed;
     }
 
     public String getFilename() {
@@ -108,7 +94,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         final EnvVars envVars      = build.getEnvironment(listener);
         envVars.overrideAll(build.getBuildVariables());
 
-        if (buildSucceed || runFailed) {
+        if (buildSucceed) {
             try {
                 final MarathonBuilder builder = MarathonBuilder.getBuilder(this)
                         .setEnvVars(envVars).setWorkspace(build.getWorkspace())
@@ -124,6 +110,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
                         retry = false;
                     } catch (MarathonException e) {
                         // 4xx and 5xx errors are build failures
+                        // 409 is app already deployed
                         if (e.getStatus() >= 400 && e.getStatus() < 600) {
                             build.setResult(Result.FAILURE);
                             LOGGER.warning(e.getMessage());
@@ -266,7 +253,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
 
         @Override
         public String getDisplayName() {
-            return "Marathon Deployments";
+            return "Marathon Deployment";
         }
 
         @Override
