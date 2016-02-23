@@ -1,5 +1,6 @@
 package com.mesosphere.velocity.marathon;
 
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
@@ -9,7 +10,6 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
@@ -117,7 +117,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         @Nonnull
         @Override
         public String getDisplayName() {
-            return "Marathon deployment";
+            return "Marathon Deployment";
         }
     }
 
