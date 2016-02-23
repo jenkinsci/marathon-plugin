@@ -26,7 +26,6 @@ import org.kohsuke.stapler.QueryParameter;
 import javax.annotation.Nonnull;
 import javax.servlet.ServletException;
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -173,12 +172,6 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
-        // use a HEAD request for HTTP URLs; this will prevent trying
-        // to read a large image, page, or asset.
-        private final static String HTTP_REQUEST_METHOD    = "HEAD";
-        // HTTP timeout in milliseconds (5 seconds total)
-        private final static int    HTTP_TIMEOUT_IN_MILLIS = 5000;
-
         public DescriptorImpl() {
             load();
         }
@@ -198,31 +191,9 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             return valid;
         }
 
-        private boolean returns200Response(final String url) {
-            boolean responding = false;
-
-            try {
-                final HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                conn.setConnectTimeout(HTTP_TIMEOUT_IN_MILLIS);
-                conn.setRequestMethod(HTTP_REQUEST_METHOD);
-                conn.connect();         // connect
-                // validate the response code is a 20x code
-                responding = conn.getResponseCode() >= 200 && conn.getResponseCode() < 300;
-                conn.disconnect();      // disconnect and cleanup
-            } catch (MalformedURLException e) {
-                // malformed; ignore
-            } catch (IOException e) {
-                // problem with connection :shrug:
-            }
-
-            return responding;
-        }
-
         private FormValidation verifyUrl(final String url) {
             if (!isUrl(url))
                 return FormValidation.error("Not a valid URL");
-            if (!returns200Response(url))
-                return FormValidation.warning("URL did not return a 200 response.");
             return FormValidation.ok();
         }
 
@@ -230,25 +201,8 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             return verifyUrl(value);
         }
 
-        public FormValidation doCheckAppid(@QueryParameter String value)
-                throws IOException, ServletException {
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckDocker(@QueryParameter String value) {
-            return FormValidation.ok();
-        }
-
         public FormValidation doCheckUri(@QueryParameter String value) {
             return verifyUrl(value);
-        }
-
-        public FormValidation doCheckLabelName(@QueryParameter String value) {
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckLabelValue(@QueryParameter String value) {
-            return FormValidation.ok();
         }
 
         @Override
