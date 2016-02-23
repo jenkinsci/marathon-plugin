@@ -41,6 +41,7 @@
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-step-api</artifactId>
             <version>${pipeline.version}</version>
+            <optional>true</optional>
         </dependency>
     </dependencies>
     <!-- Assuming you want to host on @jenkinsci:
