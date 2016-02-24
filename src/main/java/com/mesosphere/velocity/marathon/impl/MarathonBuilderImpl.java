@@ -58,21 +58,11 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder create() {
-        return this;
-    }
-
-    @Override
     public MarathonBuilder update() throws MarathonException {
         if (app != null) {
             final Marathon marathon = MarathonClient.getInstance(config.getUrl());
             marathon.updateApp(app.getId(), app, false);   // uses PUT
         }
-        return this;
-    }
-
-    @Override
-    public MarathonBuilder delete() {
         return this;
     }
 
