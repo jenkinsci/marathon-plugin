@@ -130,10 +130,10 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder toFile(final String filename) throws InterruptedException, IOException, MarathonFileInvalidException {
-        final FilePath renderedFilepath = workspace.child(
-                Util.replaceMacro(filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON, envVars));
+        final String   realFilename     = filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON;
+        final FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, envVars));
         if (renderedFilepath.exists() && renderedFilepath.isDirectory())
-            throw new MarathonFileInvalidException("File '" + filename + "' is a directory; not overwriting.");
+            throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory; not overwriting.");
 
         renderedFilepath.write(json.toString(), null);
         return this;
