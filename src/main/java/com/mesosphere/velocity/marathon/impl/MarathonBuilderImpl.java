@@ -1,5 +1,11 @@
 package com.mesosphere.velocity.marathon.impl;
 
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.interfaces.AppConfig;
+import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -11,12 +17,6 @@ import mesosphere.marathon.client.utils.MarathonException;
 import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
-import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
-import com.mesosphere.velocity.marathon.fields.MarathonLabel;
-import com.mesosphere.velocity.marathon.fields.MarathonUri;
-import com.mesosphere.velocity.marathon.interfaces.AppConfig;
-import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 
 import java.io.IOException;
 import java.util.List;
@@ -91,6 +91,11 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     public MarathonBuilder setJson(final JSONObject json) {
         this.json = json;
         return this;
+    }
+
+    @Override
+    public JSONObject getJson() {
+        return this.json;
     }
 
     @Override

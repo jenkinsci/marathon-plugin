@@ -67,6 +67,8 @@ public abstract class MarathonBuilder {
      */
     public abstract MarathonBuilder setJson(final JSONObject json);
 
+    public abstract JSONObject getJson();
+
     /**
      * Set the Jenkins Environment Variables to vars. These are used when building the final Marathon
      * payload to convert Jenkins variables to their values.
