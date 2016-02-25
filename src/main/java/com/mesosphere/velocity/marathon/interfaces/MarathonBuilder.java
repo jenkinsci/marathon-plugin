@@ -10,6 +10,10 @@ import net.sf.json.JSONObject;
 
 import java.io.IOException;
 
+/**
+ * This builds {@see MarathonClient}s from Jenkins, file system, and JSON pieces.
+ * This allows the construction of the final payload as well as sending it to the target Marathon instance.
+ */
 public abstract class MarathonBuilder {
     /**
      * Create a new builder instance from config.
