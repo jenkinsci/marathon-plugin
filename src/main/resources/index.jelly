@@ -3,5 +3,5 @@
   This view is used to render the installed plugins page.
 -->
 <div>
-  Manage Marathon deployments after a successful build.
+  Deploy applications to Marathon after a build.
 </div>
