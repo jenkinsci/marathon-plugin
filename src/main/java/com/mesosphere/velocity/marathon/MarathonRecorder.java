@@ -25,6 +25,7 @@ import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -85,11 +86,23 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         return false;
     }
 
+    /**
+     * Write text to the build's console log (logger), prefixed with
+     * "[Marathon]".
+     *
+     * @param logger a build's logger
+     * @param text   message to log
+     */
+    private void log(final PrintStream logger, final String text) {
+        logger.println("[Marathon] " + text);
+    }
+
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener)
             throws InterruptedException, IOException {
-        final boolean buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
-        final EnvVars envVars      = build.getEnvironment(listener);
+        final boolean     buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
+        final EnvVars     envVars      = build.getEnvironment(listener);
+        final PrintStream logger       = listener.getLogger();
         envVars.overrideAll(build.getBuildVariables());
 
         if (buildSucceed) {
@@ -107,10 +120,13 @@ public class MarathonRecorder extends Recorder implements AppConfig {
                         builder.update();
                         retry = false;
                     } catch (MarathonException e) {
+                        // 409 is app already deployed and should trigger retry
                         // 4xx and 5xx errors are build failures
-                        // 409 is app already deployed
-                        if (e.getStatus() >= 400 && e.getStatus() < 600 && e.getStatus() != 409) {
+                        if (e.getStatus() != 409
+                                && (e.getStatus() >= 400 && e.getStatus() < 600)) {
                             build.setResult(Result.FAILURE);
+                            log(logger, "Failed to update Marathon application:");
+                            log(logger, e.getMessage());
                             LOGGER.warning(e.getMessage());
                             retry = false;
                         } else {
@@ -123,16 +139,18 @@ public class MarathonRecorder extends Recorder implements AppConfig {
 
                 if (retry) {
                     build.setResult(Result.FAILURE);
-                    LOGGER.warning("Hit max retries while trying to update Marathon application.");
+                    log(logger, "Reached max retries updating Marathon application.");
                 }
             } catch (MarathonFileMissingException e) {
                 // "marathon.json" or whatever does not exist.
                 build.setResult(Result.FAILURE);
-                LOGGER.warning(e.getMessage());
+                log(logger, "Application Definition not found");
+                log(logger, e.getMessage());
             } catch (MarathonFileInvalidException e) {
                 // file is a directory or something.
                 build.setResult(Result.FAILURE);
-                LOGGER.warning(e.getMessage());
+                log(logger, "Application Definition is not a file");
+                log(logger, e.getMessage());
             }
 
         }
