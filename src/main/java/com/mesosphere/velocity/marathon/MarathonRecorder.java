@@ -24,7 +24,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
-import javax.servlet.ServletException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -110,16 +109,21 @@ public class MarathonRecorder extends Recorder implements AppConfig {
                     } catch (MarathonException e) {
                         // 4xx and 5xx errors are build failures
                         // 409 is app already deployed
-                        if (e.getStatus() >= 400 && e.getStatus() < 600) {
+                        if (e.getStatus() >= 400 && e.getStatus() < 600 && e.getStatus() != 409) {
                             build.setResult(Result.FAILURE);
                             LOGGER.warning(e.getMessage());
                             retry = false;
                         } else {
                             // retry.
                             retryCount++;
-                            Thread.sleep(2000L);    // 2 seconds
+                            Thread.sleep(5000L);    // 5 seconds
                         }
                     }
+                }
+
+                if (retry) {
+                    build.setResult(Result.FAILURE);
+                    LOGGER.warning("Hit max retries while trying to update Marathon application.");
                 }
             } catch (MarathonFileMissingException e) {
                 // "marathon.json" or whatever does not exist.
