@@ -7,9 +7,6 @@ import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.Launcher;
-import hudson.model.Run;
-import hudson.model.TaskListener;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
@@ -23,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private final String              url;
@@ -54,7 +50,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setDocker(String docker) {
+    public void setDocker(final String docker) {
         this.docker = docker;
     }
 
@@ -67,7 +63,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setUris(List<String> uris) {
+    public void setUris(final List<String> uris) {
         this.uris = uris;
     }
 
@@ -80,7 +76,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setLabels(Map<String, String> labels) {
+    public void setLabels(final Map<String, String> labels) {
         this.labels = labels;
     }
 
@@ -89,7 +85,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setAppid(String appid) {
+    public void setAppid(final String appid) {
         this.appid = appid;
     }
 
@@ -122,19 +118,8 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     public static class MarathonStepExecution extends AbstractSynchronousStepExecution<Void> {
-        private static final Logger LOGGER = Logger.getLogger(MarathonStepExecution.class.getName());
-
-        @StepContextParameter
-        private transient TaskListener listener;
-
         @StepContextParameter
         private transient FilePath ws;
-
-        @StepContextParameter
-        private transient Run<?, ?> build;
-
-        @StepContextParameter
-        private transient Launcher launcher;
 
         @StepContextParameter
         private transient EnvVars envVars;

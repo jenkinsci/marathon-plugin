@@ -74,8 +74,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         if (!marathonFile.exists()) {
             throw new MarathonFileMissingException(realFilename);
         } else if (marathonFile.isDirectory()) {
-            final String errorMsg = "File '" + realFilename + "' is a directory.";
-            throw new MarathonFileInvalidException(errorMsg);
+            throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory.");
         }
 
         final String content = marathonFile.readToString();
@@ -100,13 +99,13 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder setEnvVars(EnvVars vars) {
+    public MarathonBuilder setEnvVars(final EnvVars vars) {
         this.envVars = vars;
         return this;
     }
 
     @Override
-    public MarathonBuilder setConfig(AppConfig config) {
+    public MarathonBuilder setConfig(final AppConfig config) {
         this.config = config;
         return this;
     }

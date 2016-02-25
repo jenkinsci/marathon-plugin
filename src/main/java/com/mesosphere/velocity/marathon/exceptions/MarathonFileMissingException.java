@@ -1,9 +1,9 @@
 package com.mesosphere.velocity.marathon.exceptions;
 
 public class MarathonFileMissingException extends Exception {
-    private String filename;
+    private final String filename;
 
-    public MarathonFileMissingException(String filename) {
+    public MarathonFileMissingException(final String filename) {
         this.filename = filename;
     }
 

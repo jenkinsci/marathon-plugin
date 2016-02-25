@@ -1,7 +1,7 @@
 package com.mesosphere.velocity.marathon.exceptions;
 
 public class MarathonFileInvalidException extends Exception {
-    private String message;
+    private final String message;
 
     public MarathonFileInvalidException(final String message) {
         this.message = message;

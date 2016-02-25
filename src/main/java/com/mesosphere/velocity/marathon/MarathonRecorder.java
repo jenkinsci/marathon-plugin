@@ -56,7 +56,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setAppid(@Nonnull String appid) {
+    public void setAppid(@Nonnull final String appid) {
         this.appid = appid;
     }
 
@@ -171,7 +171,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setDocker(@Nonnull String docker) {
+    public void setDocker(@Nonnull final String docker) {
         this.docker = docker;
     }
 
@@ -180,7 +180,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setUris(List<MarathonUri> uris) {
+    public void setUris(final List<MarathonUri> uris) {
         this.uris = uris;
     }
 
@@ -189,7 +189,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setLabels(List<MarathonLabel> labels) {
+    public void setLabels(final List<MarathonLabel> labels) {
         this.labels = labels;
     }
 
@@ -219,11 +219,11 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             return FormValidation.ok();
         }
 
-        public FormValidation doCheckUrl(@QueryParameter String value) {
+        public FormValidation doCheckUrl(@QueryParameter final String value) {
             return verifyUrl(value);
         }
 
-        public FormValidation doCheckUri(@QueryParameter String value) {
+        public FormValidation doCheckUri(@QueryParameter final String value) {
             return verifyUrl(value);
         }
 
