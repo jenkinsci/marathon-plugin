@@ -68,12 +68,13 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder read(final String filename) throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
-        final FilePath marathonFile = workspace.child(filename != null ? filename : MarathonBuilderUtils.MARATHON_JSON);
+        final String   realFilename = filename != null ? filename : MarathonBuilderUtils.MARATHON_JSON;
+        final FilePath marathonFile = workspace.child(realFilename);
 
         if (!marathonFile.exists()) {
-            throw new MarathonFileMissingException(marathonFile.getName());
+            throw new MarathonFileMissingException(realFilename);
         } else if (marathonFile.isDirectory()) {
-            final String errorMsg = "File '" + marathonFile.getName() + "' is a directory.";
+            final String errorMsg = "File '" + realFilename + "' is a directory.";
             throw new MarathonFileInvalidException(errorMsg);
         }
 
