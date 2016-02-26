@@ -119,6 +119,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
                     try {
                         builder.update();
                         retry = false;
+                        log(logger, "Marathon application updated.");
                     } catch (MarathonException e) {
                         // 409 is app already deployed and should trigger retry
                         // 4xx and 5xx errors are build failures
@@ -144,12 +145,12 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             } catch (MarathonFileMissingException e) {
                 // "marathon.json" or whatever does not exist.
                 build.setResult(Result.FAILURE);
-                log(logger, "Application Definition not found");
+                log(logger, "Application Definition not found:");
                 log(logger, e.getMessage());
             } catch (MarathonFileInvalidException e) {
                 // file is a directory or something.
                 build.setResult(Result.FAILURE);
-                log(logger, "Application Definition is not a file");
+                log(logger, "Application Definition is not a file:");
                 log(logger, e.getMessage());
             }
 
