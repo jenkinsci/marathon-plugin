@@ -6,7 +6,9 @@ import com.sun.net.httpserver.HttpServer;
 import hudson.Launcher;
 import hudson.model.*;
 import hudson.tasks.Shell;
+import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -16,6 +18,9 @@ import org.jvnet.hudson.test.TestBuilder;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -112,6 +117,85 @@ public class MarathonRecorderTest {
                 return true;
             }
         };
+    }
+
+    /**
+     * Test that the payload has all fields supported by Marathon API.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testMarathonAllFields() throws Exception {
+        final String payload = "{\n" +
+                "  \"id\": \"test-app\",\n" +
+                "  \"container\": {\n" +
+                "    \"type\": \"DOCKER\",\n" +
+                "    \"docker\": {\n" +
+                "      \"image\": \"mesosphere/test-app:latest\",\n" +
+                "      \"network\": \"BRIDGE\",\n" +
+                "      \"portMappings\": [\n" +
+                "        {\n" +
+                "          \"hostPort\": 80,\n" +
+                "          \"containerPort\": 80,\n" +
+                "          \"protocol\": \"tcp\"\n" +
+                "        }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"acceptedResourceRoles\": [\n" +
+                "    \"agent_public\"\n" +
+                "  ],\n" +
+                "  \"labels\": {\n" +
+                "    \"lastChangedBy\": \"test@example.com\"\n" +
+                "  },\n" +
+                "  \"uris\": [ \"http://www.example.com/file\" ],\n" +
+                "  \"instances\": 1,\n" +
+                "  \"cpus\": 0.1,\n" +
+                "  \"mem\": 128,\n" +
+                "  \"healthChecks\": [\n" +
+                "    {\n" +
+                "      \"protocol\": \"TCP\",\n" +
+                "      \"gracePeriodSeconds\": 600,\n" +
+                "      \"intervalSeconds\": 30,\n" +
+                "      \"portIndex\": 0,\n" +
+                "      \"timeoutSeconds\": 10,\n" +
+                "      \"maxConsecutiveFailures\": 2\n" +
+                "    }\n" +
+                "  ],\n" +
+                "  \"upgradeStrategy\": {\n" +
+                "        \"minimumHealthCapacity\": 0\n" +
+                "  },\n" +
+                "  \"backoffSeconds\": 1,\n" +
+                "  \"backoffFactor\": 1.15,\n" +
+                "  \"maxLaunchDelaySeconds\": 3600,\n" +
+                "}";
+        final JSONObject       payloadJson = JSONObject.fromObject(payload);
+        final FreeStyleProject project     = j.createFreeStyleProject();
+
+        // add builders
+        project.getBuildersList().add(new Shell("echo hello"));
+        project.getBuildersList().add(createMarathonFileBuilder(payload));
+
+        // add post-builder
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+
+        // run a build with the shell step and recorder publisher
+        final FreeStyleBuild build = project.scheduleBuild2(0).get();
+
+        // get console log
+        final String s = FileUtils.readFileToString(build.getLogFile());
+
+        // assert things
+        assertEquals("Build should fail", Result.SUCCESS, build.getResult());
+        assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
+
+        // get the request body of the first request sent to the handler
+        final JSONObject requestJson = JSONObject.fromObject(handler.getRequests().get(0).getBody());
+
+        // verify that each root field is present in the received request
+        for (Object key : payloadJson.keySet()) {
+            assertTrue("JSON is missing field: " + key, requestJson.containsKey(key));
+        }
     }
 
     /**
@@ -229,19 +313,23 @@ public class MarathonRecorderTest {
      * test scenario.
      */
     class TestHandler implements HttpHandler {
-        private int    requestCount;
-        private String responseBody;
-        private int    responseCode;
+        private int               requestCount;
+        private String            responseBody;
+        private int               responseCode;
+        private List<TestRequest> requests;
 
         public TestHandler() {
             this.requestCount = 0;
             this.responseBody = null;
             this.responseCode = 200;
+            this.requests = new ArrayList<TestRequest>(5);
         }
 
         @Override
         public void handle(HttpExchange httpExchange) throws IOException {
             requestCount++;
+
+            requests.add(new TestRequest(httpExchange.getRequestURI(), IOUtils.toString(httpExchange.getRequestBody())));
             httpExchange.sendResponseHeaders(responseCode, responseBody != null ? responseBody.length() : 0);
         }
 
@@ -267,6 +355,37 @@ public class MarathonRecorderTest {
 
         public void resetRequestCount() {
             this.requestCount = 0;
+        }
+
+        public List<TestRequest> getRequests() {
+            return requests;
+        }
+    }
+
+    class TestRequest {
+        private String body;
+        private URI    uri;
+
+
+        public TestRequest(URI uri, String body) {
+            this.uri = uri;
+            this.body = body;
+        }
+
+        public String getBody() {
+            return body;
+        }
+
+        public void setBody(String body) {
+            this.body = body;
+        }
+
+        public URI getUri() {
+            return uri;
+        }
+
+        public void setUri(URI uri) {
+            this.uri = uri;
         }
     }
 }
