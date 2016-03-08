@@ -36,7 +36,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>cc.roden</groupId>
+            <groupId>com.mesosphere</groupId>
             <artifactId>marathon-client</artifactId>
             <version>${marathon.client.version}</version>
         </dependency>
