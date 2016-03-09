@@ -61,7 +61,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     public MarathonBuilder update() throws MarathonException {
         if (app != null) {
             final Marathon marathon = MarathonClient.getInstance(config.getUrl());
-            marathon.updateApp(app.getId(), app, false);   // uses PUT
+            marathon.updateApp(app.getId(), app);   // uses PUT
         }
         return this;
     }
