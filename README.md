@@ -11,7 +11,6 @@ is recommended that this file be present within a project's code repository.
 {
 	"id": "/product/service/myApp",
     "cmd": "env && sleep 300",
-    "args": ["/bin/sh", "-c", "env && sleep 300"],
     "cpus": 0.25,
     "mem": 16.0
 }
@@ -33,7 +32,7 @@ $ mvn clean && rm -rf ./work/
 ```
 
 ## Package and Deploy
-Run `mvn hpi:hpi` to create an `hpi` file within the local `target` directory.
+Run `mvn package` to create an `hpi` file within the local `target` directory.
 This artifact can be uploaded as a plugin to a running Jenkins instance.
 
 ## workflow/Pipeline Plugin Support
