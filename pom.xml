@@ -27,7 +27,7 @@
     </licenses>
 
     <properties>
-        <marathon.client.version>0.1.0</marathon.client.version>
+        <marathon.client.version>0.13.0</marathon.client.version>
         <pipeline.version>1.13</pipeline.version>
         <junit.version>4.11</junit.version>
         <mockito.version>1.10.19</mockito.version>
