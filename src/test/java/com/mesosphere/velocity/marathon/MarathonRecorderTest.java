@@ -17,6 +17,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestBuilder;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
@@ -86,8 +87,10 @@ public class MarathonRecorderTest {
      */
     @Test
     public void testRecorderPass() throws Exception {
-        final String           payload = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project = j.createFreeStyleProject();
+        final String           payload     = "{\"id\":\"myapp\"}";
+        final FreeStyleProject project     = j.createFreeStyleProject();
+        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
+        handler.setResponseBody(responseStr);
 
         // add builders
         project.getBuildersList().add(new Shell("echo hello"));
@@ -171,6 +174,8 @@ public class MarathonRecorderTest {
                 "}";
         final JSONObject       payloadJson = JSONObject.fromObject(payload);
         final FreeStyleProject project     = j.createFreeStyleProject();
+        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
+        handler.setResponseBody(responseStr);
 
         // add builders
         project.getBuildersList().add(new Shell("echo hello"));
@@ -331,6 +336,11 @@ public class MarathonRecorderTest {
 
             requests.add(new TestRequest(httpExchange.getRequestURI(), IOUtils.toString(httpExchange.getRequestBody())));
             httpExchange.sendResponseHeaders(responseCode, responseBody != null ? responseBody.length() : 0);
+            if (responseBody != null) {
+                final OutputStream os = httpExchange.getResponseBody();
+                os.write(responseBody.getBytes());
+                os.close();
+            }
         }
 
         public int getRequestCount() {
