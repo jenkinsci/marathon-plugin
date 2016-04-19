@@ -2,9 +2,11 @@ package com.mesosphere.velocity.marathon.impl;
 
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import hudson.FilePath;
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.junit.Before;
 import org.junit.Rule;
@@ -18,6 +20,7 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import java.io.IOException;
+import java.util.Collections;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyString;
@@ -113,4 +116,51 @@ public class MarathonBuilderImplTest {
         assertEquals("JSON should have same id",
                 expectedJson.getString("id"), builder.getJson().getString("id"));
     }
+
+    @Test
+    public void testNoUris() {
+        final String     jsonString = "{\"id\": \"testid\"}";
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+
+        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+        assertNull(builder.getJson().get("uris"));
+
+        when(appConfig.getUris()).thenReturn(Collections.singletonList(
+                new MarathonUri("http://example.com/artifact")));
+        builder = builder.build();
+        final JSONArray uris = builder.getJson().getJSONArray("uris");
+        assertEquals(1, uris.size());
+        assertEquals("http://example.com/artifact", uris.get(0));
+    }
+
+    @Test
+    public void testExistingUris() {
+        final String     jsonString = "{\"id\": \"testid\", \"uris\": [\"http://example.com/artifact\"]}";
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+
+        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+        assertEquals(1, builder.getJson().getJSONArray("uris").size());
+
+        final String item = builder.getJson().getJSONArray("uris").getString(0);
+        assertEquals("http://example.com/artifact", item);
+
+        when(appConfig.getUris()).thenReturn(Collections.singletonList(new MarathonUri("http://example.com/valid_artifact")));
+        builder = builder.build();
+        assertEquals(2, builder.getJson().getJSONArray("uris").size());
+    }
+
+    @Test
+    public void testInvalidTypeUris() {
+        final String     jsonString = "{\"id\": \"testid\", \"uris\": \"http://example.com/artifact\"}";
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+
+        when(appConfig.getUris()).thenReturn(Collections.singletonList(new MarathonUri("http://example.com/valid_artifact")));
+
+        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+        final JSONArray uris = builder.getJson().getJSONArray("uris");
+        assertEquals(1, uris.size());
+        final String item = uris.getString(0);
+        assertEquals("http://example.com/valid_artifact", item);
+    }
+
 }

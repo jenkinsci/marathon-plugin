@@ -178,9 +178,16 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * to their actual values.
      */
     private JSONObject setUris() {
-        json.element(MarathonBuilderUtils.JSON_URI_FIELD, new JSONArray());
-        for (MarathonUri uri : config.getUris()) {
-            json.accumulate(MarathonBuilderUtils.JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), envVars));
+        if (config.getUris().size() > 0) {
+            final boolean hasUris = json.get(MarathonBuilderUtils.JSON_URI_FIELD) instanceof JSONArray;
+
+            // create the "uris" field if one is not there or it is of the wrong type.
+            if (!hasUris)
+                json.element(MarathonBuilderUtils.JSON_URI_FIELD, new JSONArray());
+
+            for (MarathonUri uri : config.getUris()) {
+                json.accumulate(MarathonBuilderUtils.JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), envVars));
+            }
         }
 
         return json;
