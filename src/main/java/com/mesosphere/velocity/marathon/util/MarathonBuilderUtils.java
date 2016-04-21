@@ -38,4 +38,14 @@ public class MarathonBuilderUtils {
      * Definition.
      */
     public static final String JSON_EMPTY_CONTAINER    = "{\"type\": \"DOCKER\"}";
+
+    /**
+     * Remove the trailing slash from url.
+     *
+     * @param url the URL
+     * @return URL with the trailing slash removed, if it exists.
+     */
+    public static String rmSlashFromUrl(final String url) {
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
 }
