@@ -4,6 +4,7 @@ import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
+import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
@@ -31,7 +32,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
     @DataBoundConstructor
     public MarathonStep(final String url) {
-        this.url = url;
+        this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
         this.uris = new ArrayList<String>(5);
         this.labels = new HashMap<String, String>(5);
     }
