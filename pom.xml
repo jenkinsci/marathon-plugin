@@ -26,7 +26,7 @@
     </licenses>
 
     <properties>
-        <marathon.client.version>0.1.0</marathon.client.version>
+        <marathon.client.version>0.2.0</marathon.client.version>
         <pipeline.version>1.13</pipeline.version>
         <junit.version>4.11</junit.version>
         <mockito.version>1.10.19</mockito.version>
@@ -108,14 +108,5 @@
             <url>http://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
-    <!-- If you want to depend on other plugins:
-    <dependencies>
-      <dependency>
-        <groupId>org.jenkins-ci.plugins</groupId>
-        <artifactId>credentials</artifactId>
-        <version>1.9.4</version>
-      </dependency>
-    </dependencies>
-    -->
 
 </project>
