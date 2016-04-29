@@ -31,9 +31,23 @@
         <junit.version>4.11</junit.version>
         <mockito.version>1.10.19</mockito.version>
         <powermock.version>1.6.2</powermock.version>
+        <credentials.version>1.22</credentials.version>
+        <plain-credentials.version>1.1</plain-credentials.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>credentials</artifactId>
+            <version>${credentials.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>plain-credentials</artifactId>
+            <version>${plain-credentials.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>com.mesosphere</groupId>
             <artifactId>marathon-client</artifactId>
