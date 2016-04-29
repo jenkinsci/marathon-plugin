@@ -1,5 +1,14 @@
 package com.mesosphere.velocity.marathon.util;
 
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import hudson.security.ACL;
+import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
+
+import java.util.Collections;
+
 public class MarathonBuilderUtils {
     /**
      * Default Marathon Application Definition file.
@@ -47,5 +56,21 @@ public class MarathonBuilderUtils {
      */
     public static String rmSlashFromUrl(final String url) {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    /**
+     * Get the token from the credentials identified by the given id.
+     *
+     * @param credentialsId The id for the credentials
+     * @return Jenkins credentials
+     */
+    public static StringCredentials getTokenCredentials(final String credentialsId) {
+        if (credentialsId == null || credentialsId.equals(""))
+            return null;
+        return CredentialsMatchers.firstOrNull(
+                CredentialsProvider.lookupCredentials(StringCredentials.class,
+                        Jenkins.getInstance(), ACL.SYSTEM, Collections.<DomainRequirement>emptyList()),
+                CredentialsMatchers.withId(credentialsId)
+        );
     }
 }
