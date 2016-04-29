@@ -17,6 +17,7 @@ import mesosphere.marathon.client.utils.MarathonException;
 import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
 import java.util.List;
@@ -60,7 +61,9 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     @Override
     public MarathonBuilder update() throws MarathonException {
         if (app != null) {
-            final Marathon marathon = MarathonClient.getInstance(config.getUrl());
+            final StringCredentials creds = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
+            final Marathon marathon = creds == null ? MarathonClient.getInstance(config.getUrl()) :
+                    MarathonClient.getInstanceWithTokenAuth(config.getUrl(), creds.getSecret().getPlainText());
             marathon.updateApp(app.getId(), app);   // uses PUT
         }
         return this;
