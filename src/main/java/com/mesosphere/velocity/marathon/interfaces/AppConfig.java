@@ -28,6 +28,13 @@ public interface AppConfig {
     String getDocker();
 
     /**
+     * Get the Jenkins credentials id for this configuration.
+     *
+     * @return credentials id
+     */
+    String getCredentialsId();
+
+    /**
      * Return a list of configured URIs. These will be downloaded into the container
      * sandbox prior to the Marathon application starting.
      *

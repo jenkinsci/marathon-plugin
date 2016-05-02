@@ -29,6 +29,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       String              appid;
     private       String              docker;
     private       String              filename;
+    private       String              credentialsId;
 
     @DataBoundConstructor
     public MarathonStep(final String url) {
@@ -50,9 +51,14 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         return docker;
     }
 
+    @Override
+    public String getCredentialsId() {
+        return credentialsId;
+    }
+
     @DataBoundSetter
-    public void setDocker(final String docker) {
-        this.docker = docker;
+    public void setCredentialsId(final String credentialsId) {
+        this.credentialsId = credentialsId;
     }
 
     public List<MarathonUri> getUris() {
@@ -79,6 +85,11 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     @DataBoundSetter
     public void setLabels(final Map<String, String> labels) {
         this.labels = labels;
+    }
+
+    @DataBoundSetter
+    public void setDocker(final String docker) {
+        this.docker = docker;
     }
 
     public String getAppid() {

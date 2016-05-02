@@ -1,5 +1,9 @@
 package com.mesosphere.velocity.marathon;
 
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
@@ -10,16 +14,16 @@ import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
-import hudson.model.Result;
+import hudson.model.*;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import mesosphere.marathon.client.utils.MarathonException;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -30,6 +34,7 @@ import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -43,6 +48,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       String              appid;
     private       String              docker;
     private       String              filename;
+    private       String              credentialsId;
 
     @DataBoundConstructor
     public MarathonRecorder(final String url) {
@@ -85,6 +91,15 @@ public class MarathonRecorder extends Recorder implements AppConfig {
          * This should be run before the build is finalized.
          */
         return false;
+    }
+
+    public String getCredentialsId() {
+        return this.credentialsId;
+    }
+
+    @DataBoundSetter
+    public void setCredentialsId(final String credentialsId) {
+        this.credentialsId = credentialsId;
     }
 
     /**
@@ -213,6 +228,13 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             }
 
             return valid;
+        }
+
+        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {
+            return new StandardListBoxModel().withEmptySelection().withMatching(
+                    CredentialsMatchers.instanceOf(StringCredentials.class),
+                    CredentialsProvider.lookupCredentials(StringCredentials.class, item, null, Collections.<DomainRequirement>emptyList())
+            );
         }
 
         private FormValidation verifyUrl(final String url) {
