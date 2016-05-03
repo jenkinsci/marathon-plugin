@@ -2,7 +2,9 @@ package com.mesosphere.velocity.marathon;
 
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
@@ -232,8 +234,11 @@ public class MarathonRecorder extends Recorder implements AppConfig {
 
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {
             return new StandardListBoxModel().withEmptySelection().withMatching(
-                    CredentialsMatchers.instanceOf(StringCredentials.class),
-                    CredentialsProvider.lookupCredentials(StringCredentials.class, item, null, Collections.<DomainRequirement>emptyList())
+                    CredentialsMatchers.anyOf(
+                            CredentialsMatchers.instanceOf(StringCredentials.class),
+                            CredentialsMatchers.instanceOf(UsernamePasswordCredentials.class)
+                    ),
+                    CredentialsProvider.lookupCredentials(StandardCredentials.class, item, null, Collections.<DomainRequirement>emptyList())
             );
         }
 
