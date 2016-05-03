@@ -1,5 +1,6 @@
 package com.mesosphere.velocity.marathon.impl;
 
+import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
@@ -61,8 +62,11 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     @Override
     public MarathonBuilder update() throws MarathonException {
         if (app != null) {
+            final UsernamePasswordCredentials usercreds = MarathonBuilderUtils.getUsernamePasswordCredentials(config.getCredentialsId());
             final StringCredentials creds = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
-            final Marathon marathon = creds == null ? MarathonClient.getInstance(config.getUrl()) :
+            final Marathon marathon = creds == null ?
+                    usercreds == null ? MarathonClient.getInstance(config.getUrl()) :
+                            MarathonClient.getInstanceWithBasicAuth(config.getUrl(), usercreds.getUsername(), usercreds.getPassword().getPlainText()) :
                     MarathonClient.getInstanceWithTokenAuth(config.getUrl(), creds.getSecret().getPlainText());
             marathon.updateApp(app.getId(), app);   // uses PUT
         }
