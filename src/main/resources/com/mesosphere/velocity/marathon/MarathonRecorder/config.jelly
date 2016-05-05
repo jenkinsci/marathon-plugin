@@ -4,7 +4,7 @@
         <f:textbox />
     </f:entry>
 
-    <f:entry field="credentialsId" title="${%Authentication}">
+    <f:entry field="credentialsId" title="${%Authentication Credentials}">
         <c:select/>
     </f:entry>
 
