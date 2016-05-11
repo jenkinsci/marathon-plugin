@@ -2,6 +2,7 @@ package com.mesosphere.velocity.marathon.util;
 
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import hudson.security.ACL;
 import jenkins.model.Jenkins;
@@ -73,4 +74,21 @@ public class MarathonBuilderUtils {
                 CredentialsMatchers.withId(credentialsId)
         );
     }
+
+    /**
+     * Get the user/pass from the credentials identified by the given id.
+     *
+     * @param credentialsId The id for the credentials
+     * @return Jenkins credentials
+     */
+    public static UsernamePasswordCredentials getUsernamePasswordCredentials(final String credentialsId) {
+        if (credentialsId == null || credentialsId.equals(""))
+            return null;
+        return CredentialsMatchers.firstOrNull(
+                CredentialsProvider.lookupCredentials(UsernamePasswordCredentials.class,
+                        Jenkins.getInstance(), ACL.SYSTEM, Collections.<DomainRequirement>emptyList()),
+                CredentialsMatchers.withId(credentialsId)
+        );
+    }
+
 }
