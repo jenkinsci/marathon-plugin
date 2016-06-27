@@ -17,7 +17,7 @@
 
     <name>Marathon Deployment</name>
     <description>Update or Create Marathon deployments after a successful build.</description>
-    <url>https://wiki.jenkins-ci.org/display/JENKINS/TODO+Plugin</url>
+    <url>https://wiki.jenkins-ci.org/display/JENKINS/Marathon+Plugin</url>
     <licenses>
         <license>
             <name>MIT License</name>
@@ -49,7 +49,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.mesosphere</groupId>
+            <groupId>mesosphere</groupId>
             <artifactId>marathon-client</artifactId>
             <version>${marathon.client.version}</version>
         </dependency>
@@ -89,17 +89,20 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-    <!-- Assuming you want to host on @jenkinsci:
     <scm>
       <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
       <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
       <url>http://github.com/jenkinsci/${project.artifactId}-plugin</url>
     </scm>
-     -->
     <repositories>
         <repository>
             <id>repo.jenkins-ci.org</id>
             <url>http://repo.jenkins-ci.org/public/</url>
+        </repository>
+
+        <repository>
+            <id>downloads.mesosphere.com</id>
+            <url>https://downloads.mesosphere.com/maven-snapshot/</url>
         </repository>
     </repositories>
     <pluginRepositories>

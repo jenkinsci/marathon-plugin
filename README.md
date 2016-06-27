@@ -1,6 +1,10 @@
 # Marathon Plugin for Jenkins
-Adds a _Marathon Deployment_ post-build item that updates an application within a
-target Marathon instance. This can also be used within a workflow or pipeline
+
+##Background
+Marathon is a production-grade container orchestration platform for Mesosphere's Datacenter Operating System (DCOS) and Apache Mesos. Marathon is a meta framework: you can start other Mesos frameworks such as Chronos or Storm with it to ensure they survive machine failures. It can launch anything that can be launched in a standard shell. In fact, you can even start other Marathon instances via Marathon.
+
+##Summary
+This plugin adds a _Marathon Deployment_ post-build item that updates an application within a target Marathon instance. This can also be used within a workflow or pipeline
 plugin job.
 
 ## Requirements
