@@ -49,7 +49,7 @@
         </dependency>
 
         <dependency>
-            <groupId>mesosphere</groupId>
+            <groupId>com.mesosphere</groupId>
             <artifactId>marathon-client</artifactId>
             <version>${marathon.client.version}</version>
         </dependency>
