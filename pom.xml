@@ -102,7 +102,7 @@
 
         <repository>
             <id>downloads.mesosphere.com</id>
-            <url>https://downloads.mesosphere.com/maven-snapshot/</url>
+            <url>https://downloads.mesosphere.com/maven/</url>
         </repository>
     </repositories>
     <pluginRepositories>
