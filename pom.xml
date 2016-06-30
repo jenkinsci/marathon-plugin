@@ -111,7 +111,7 @@
             <url>http://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
-     <build>
+    <build>
  	  <plugins>
   	   <plugin>
     	 <groupId>org.apache.maven.plugins</groupId>
