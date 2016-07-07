@@ -23,7 +23,38 @@
             <url>http://opensource.org/licenses/MIT</url>
         </license>
     </licenses>
-
+    <developers>        
+        <developer>
+            <id>aquamatthias</id>
+            <name>Matthias Veit</name>
+            <email>matthias@mesosphere.io </email>
+        </developer>
+        <developer>
+            <id>colin-msphere</id>
+            <name>Colin Creeden</name>
+            <email>colin@mesosphere.io</email>
+        </developer>
+        <developer>
+            <id>rji</id>
+            <name>Roger Ignazio</name>
+            <email>roger@mesosphere.io</email>
+        </developer>
+        <developer>
+            <id>sschneid</id>
+            <name>Scott Schneider</name>
+            <email>sschneider@mesosphere.io</email>
+        </developer>
+        <developer>
+            <id>ssk2</id>
+            <name>Sunil Shah</name>
+            <email>sunil@mesosphere.io</email>
+        </developer>
+        <developer>
+            <id>titosand</id>
+            <name>Tito Sandoval</name>
+            <email>tsandoval@mesosphere.io</email>
+        </developer>
+    </developers>
     <properties>
         <marathon.client.version>0.2.0</marathon.client.version>
         <pipeline.version>1.13</pipeline.version>
