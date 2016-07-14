@@ -61,6 +61,10 @@ The Marathon Plugin for Jenkins is licensed under the Apache License, Version 2.
 
 Please file an issue in [the Jenkins issue tracker](https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20marathon-plugin), using the "marathon-plugin" component.
 
+## Releasing
+
+For information on releasing new versions of the plugin, see [the jenkins plugin-hosting guide](https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins).
+
 ## Contributing
 
 Please submit changes via a GitHub pull request.
