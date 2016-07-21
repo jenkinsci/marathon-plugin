@@ -1,4 +1,4 @@
-# Marathon Plugin for Jenkins
+# Marathon Plugin for Jenkins [![Build Status](https://velocity.mesosphere.com/service/velocity/buildStatus/icon?job=marathon-plugin-publish-master)](https://velocity.mesosphere.com/service/velocity/job/marathon-plugin-publish-master/)
 
 ## Background
 
