@@ -56,7 +56,7 @@
         </developer>
     </developers>
     <properties>
-        <marathon.client.version>0.2.0</marathon.client.version>
+        <marathon.client.version>0.2.1</marathon.client.version>
         <pipeline.version>1.13</pipeline.version>
         <junit.version>4.11</junit.version>
         <mockito.version>1.10.19</mockito.version>
@@ -129,11 +129,6 @@
         <repository>
             <id>repo.jenkins-ci.org</id>
             <url>http://repo.jenkins-ci.org/public/</url>
-        </repository>
-
-        <repository>
-            <id>downloads.mesosphere.com</id>
-            <url>https://downloads.mesosphere.com/maven/</url>
         </repository>
     </repositories>
     <pluginRepositories>
