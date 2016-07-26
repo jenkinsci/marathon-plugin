@@ -51,6 +51,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       String              docker;
     private       String              filename;
     private       String              credentialsId;
+    private       boolean             forceUpdate;
 
     @DataBoundConstructor
     public MarathonRecorder(final String url) {
@@ -93,15 +94,6 @@ public class MarathonRecorder extends Recorder implements AppConfig {
          * This should be run before the build is finalized.
          */
         return false;
-    }
-
-    public String getCredentialsId() {
-        return this.credentialsId;
-    }
-
-    @DataBoundSetter
-    public void setCredentialsId(final String credentialsId) {
-        this.credentialsId = credentialsId;
     }
 
     /**
@@ -185,13 +177,22 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         return url;
     }
 
+    @Override
+    public boolean getForceUpdate() {
+        return forceUpdate;
+    }
+
     public String getDocker() {
         return docker;
     }
 
+    public String getCredentialsId() {
+        return this.credentialsId;
+    }
+
     @DataBoundSetter
-    public void setDocker(@Nonnull final String docker) {
-        this.docker = docker;
+    public void setCredentialsId(final String credentialsId) {
+        this.credentialsId = credentialsId;
     }
 
     public List<MarathonUri> getUris() {
@@ -210,6 +211,25 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setLabels(final List<MarathonLabel> labels) {
         this.labels = labels;
+    }
+
+    @DataBoundSetter
+    public void setDocker(@Nonnull final String docker) {
+        this.docker = docker;
+    }
+
+    /**
+     * Used by jelly or stapler to determine checkbox state.
+     *
+     * @return True if Force Update is enabled; False otherwise.
+     */
+    public boolean isForceUpdate() {
+        return getForceUpdate();
+    }
+
+    @DataBoundSetter
+    public void setForceUpdate(final boolean forceUpdate) {
+        this.forceUpdate = forceUpdate;
     }
 
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {

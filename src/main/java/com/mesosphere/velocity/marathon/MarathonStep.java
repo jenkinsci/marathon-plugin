@@ -30,6 +30,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       String              docker;
     private       String              filename;
     private       String              credentialsId;
+    private       boolean             forceUpdate;
 
     @DataBoundConstructor
     public MarathonStep(final String url) {
@@ -45,6 +46,16 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
     public String getUrl() {
         return url;
+    }
+
+    @Override
+    public boolean getForceUpdate() {
+        return forceUpdate;
+    }
+
+    @DataBoundSetter
+    public void setForceUpdate(final boolean forceUpdate) {
+        this.forceUpdate = forceUpdate;
     }
 
     public String getDocker() {
