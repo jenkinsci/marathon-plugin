@@ -47,6 +47,7 @@ This plugin can be called as `marathon(...)` within [a pipeline job](https://git
 ```
 marathon(
     url: 'http://marathon-instance',
+    forceUpdate: false,
     appid: 'someid',
     docker: 'mesosphere/jenkins-dev')
 ```
