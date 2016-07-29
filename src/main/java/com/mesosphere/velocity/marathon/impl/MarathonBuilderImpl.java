@@ -68,7 +68,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                     usercreds == null ? MarathonClient.getInstance(config.getUrl()) :
                             MarathonClient.getInstanceWithBasicAuth(config.getUrl(), usercreds.getUsername(), usercreds.getPassword().getPlainText()) :
                     MarathonClient.getInstanceWithTokenAuth(config.getUrl(), creds.getSecret().getPlainText());
-            marathon.updateApp(app.getId(), app);   // uses PUT
+            marathon.updateApp(app.getId(), app, config.getForceUpdate());   // uses PUT
         }
         return this;
     }
