@@ -5,12 +5,12 @@
     <p>
         If this is set to <code>true</code> (checked), then a new deployment will be forced and the current deployment
         canceled. If this is set to <code>false</code> (unchecked), then this plugin will attempt to update the Marathon
-        application every couple of seconds until a timeout is reached. If the active deployment does not complete within
-        the time frame, then an error will be returned and the job marked as failed.
+        application every couple of seconds until a timeout is reached. If the plugin is unable to successfully update
+        the application before the timeout is reached, then the job will be marked as failed.
     </p>
     <p>
         More information can be found on the
         <a href="https://mesosphere.github.io/marathon/docs/rest-api.html#put-v2-apps-appid" target="_blank">
-        Marathon REST API</a> documentation page.
+            Marathon REST API</a> documentation page.
     </p>
 </div>
