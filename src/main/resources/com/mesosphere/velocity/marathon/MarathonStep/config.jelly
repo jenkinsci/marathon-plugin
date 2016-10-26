@@ -12,4 +12,10 @@
     <f:entry field="docker" title="${%Docker}">
         <f:textbox/>
     </f:entry>
+    <f:entry field="credentialsId" title="${%Credentials Id}">
+        <f:textbox/>
+    </f:entry>
+    <f:entry field="filename" title="${%Filename}">
+        <f:textbox/>
+    </f:entry>
 </j:jelly>
