@@ -6,16 +6,16 @@
     <f:entry field="forceUpdate" title="${%Force Update}">
         <f:checkbox name="forceUpdate" />
     </f:entry>
-    <f:entry field="appid" title="${%App ID}">
+    <f:entry field="appid" title="${%Application Id}">
         <f:textbox/>
     </f:entry>
     <f:entry field="docker" title="${%Docker}">
         <f:textbox/>
     </f:entry>
-    <f:entry field="credentialsId" title="${%Credentials Id}">
+    <f:entry field="credentialsId" title="${%Authentication Credentials}">
         <f:textbox/>
     </f:entry>
-    <f:entry field="filename" title="${%Filename}">
+    <f:entry field="filename" title="${%Application Definition}">
         <f:textbox/>
     </f:entry>
 </j:jelly>
