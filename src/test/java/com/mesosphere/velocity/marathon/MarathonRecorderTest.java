@@ -1,14 +1,24 @@
 package com.mesosphere.velocity.marathon;
 
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.domains.Domain;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import hudson.ExtensionList;
 import hudson.Launcher;
 import hudson.model.*;
 import hudson.tasks.Shell;
+import hudson.util.Secret;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -33,14 +43,13 @@ public class MarathonRecorderTest {
     /**
      * An HTTP Server to receive requests from the plugin.
      */
-    HttpServer        httpServer;
-    TestHandler       handler;
-    InetSocketAddress serverAddress;
+    private HttpServer  httpServer;
+    private TestHandler handler;
 
     @Before
     public void setUp() throws IOException {
         handler = new TestHandler();
-        serverAddress = new InetSocketAddress("localhost", 0);
+        InetSocketAddress serverAddress = new InetSocketAddress("localhost", 0);
 
         httpServer = HttpServer.create(serverAddress, 500);
         httpServer.createContext("/", handler);
@@ -93,11 +102,7 @@ public class MarathonRecorderTest {
         handler.setResponseBody(responseStr);
 
         // add builders
-        project.getBuildersList().add(new Shell("echo hello"));
-        project.getBuildersList().add(createMarathonFileBuilder(payload));
-
-        // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        setupBasicProject(payload, project);
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = project.scheduleBuild2(0).get();
@@ -178,17 +183,10 @@ public class MarathonRecorderTest {
         handler.setResponseBody(responseStr);
 
         // add builders
-        project.getBuildersList().add(new Shell("echo hello"));
-        project.getBuildersList().add(createMarathonFileBuilder(payload));
-
-        // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        setupBasicProject(payload, project);
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = project.scheduleBuild2(0).get();
-
-        // get console log
-        final String s = FileUtils.readFileToString(build.getLogFile());
 
         // assert things
         assertEquals("Build should fail", Result.SUCCESS, build.getResult());
@@ -216,11 +214,7 @@ public class MarathonRecorderTest {
         final FreeStyleProject project = j.createFreeStyleProject();
 
         // add builders
-        project.getBuildersList().add(new Shell("echo hello"));
-        project.getBuildersList().add(createMarathonFileBuilder(payload));
-
-        // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        setupBasicProject(payload, project);
 
         // return 409 to trigger retry logic
         handler.setResponseCode(409);
@@ -249,13 +243,8 @@ public class MarathonRecorderTest {
     public void testRecorder404() throws Exception {
         final String           payload = "{\"id\":\"myapp\"}";
         final FreeStyleProject project = j.createFreeStyleProject();
+        setupBasicProject(payload, project);
 
-        // add builders
-        project.getBuildersList().add(new Shell("echo hello"));
-        project.getBuildersList().add(createMarathonFileBuilder(payload));
-
-        // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
 
         // return a 404, which will fail the build
         handler.setResponseCode(404);
@@ -273,6 +262,15 @@ public class MarathonRecorderTest {
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
     }
 
+    private void setupBasicProject(String payload, FreeStyleProject project) {
+        // add builders
+        project.getBuildersList().add(new Shell("echo hello"));
+        project.getBuildersList().add(createMarathonFileBuilder(payload));
+
+        // add post-builder
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+    }
+
     /**
      * Test that a 5xx (503 in this case) response code does not
      * trigger retries. This should result in only one request
@@ -286,11 +284,7 @@ public class MarathonRecorderTest {
         final FreeStyleProject project = j.createFreeStyleProject();
 
         // add builders
-        project.getBuildersList().add(new Shell("echo hello"));
-        project.getBuildersList().add(createMarathonFileBuilder(payload));
-
-        // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        setupBasicProject(payload, project);
 
         // return a 503, which will fail the build
         handler.setResponseCode(503);
@@ -308,6 +302,44 @@ public class MarathonRecorderTest {
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
     }
 
+    @Test
+    public void testBasicToken() throws Exception {
+        final String           payload     = "{\"id\":\"myapp\"}";
+        final FreeStyleProject project     = j.createFreeStyleProject();
+        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
+
+        handler.setResponseCode(200);
+        handler.setResponseBody(responseStr);
+
+        final SystemCredentialsProvider.ProviderImpl system      = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
+        final CredentialsStore                       systemStore = system.getStore(j.getInstance());
+        final String                                 tokenValue  = "my secret token";
+        final Secret                                 secret      = Secret.fromString(tokenValue);
+        final StringCredentials                      credential  = new StringCredentialsImpl(CredentialsScope.GLOBAL, "basictoken", "a token for basic token test", secret);
+
+        systemStore.addCredentials(Domain.global(), credential);
+
+        // add builders
+        project.getBuildersList().add(new Shell("echo hello"));
+        project.getBuildersList().add(createMarathonFileBuilder(payload));
+
+        // add post-builder
+        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss());
+        marathonRecorder.setCredentialsId("basictoken");
+        project.getPublishersList().add(marathonRecorder);
+
+
+        final FreeStyleBuild build = project.scheduleBuild2(0).get();
+        final String         s     = FileUtils.readFileToString(build.getLogFile());
+
+        assertEquals("Build failed", Result.SUCCESS, build.getResult());
+        assertTrue(s.contains("[Marathon]"));
+        assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
+
+        final String authorizationText = handler.getRequests().get(0).getHeaders().getFirst("Authorization");
+        assertEquals("Token does not match", "token=" + tokenValue, authorizationText);
+    }
+
     private String getHttpAddresss() {
         return "http://" + httpServer.getAddress().getHostName() + ":" + httpServer.getAddress().getPort();
     }
@@ -317,13 +349,13 @@ public class MarathonRecorderTest {
      * The response body and status code can be altered for each
      * test scenario.
      */
-    class TestHandler implements HttpHandler {
+    private class TestHandler implements HttpHandler {
         private int               requestCount;
         private String            responseBody;
         private int               responseCode;
         private List<TestRequest> requests;
 
-        public TestHandler() {
+        TestHandler() {
             this.requestCount = 0;
             this.responseBody = null;
             this.responseCode = 200;
@@ -334,7 +366,7 @@ public class MarathonRecorderTest {
         public void handle(HttpExchange httpExchange) throws IOException {
             requestCount++;
 
-            requests.add(new TestRequest(httpExchange.getRequestURI(), IOUtils.toString(httpExchange.getRequestBody())));
+            requests.add(new TestRequest(httpExchange.getRequestURI(), IOUtils.toString(httpExchange.getRequestBody()), httpExchange.getRequestHeaders()));
             httpExchange.sendResponseHeaders(responseCode, responseBody != null ? responseBody.length() : 0);
             if (responseBody != null) {
                 final OutputStream os = httpExchange.getResponseBody();
@@ -343,7 +375,7 @@ public class MarathonRecorderTest {
             }
         }
 
-        public int getRequestCount() {
+        int getRequestCount() {
             return requestCount;
         }
 
@@ -351,7 +383,7 @@ public class MarathonRecorderTest {
             return responseBody;
         }
 
-        public void setResponseBody(String responseBody) {
+        void setResponseBody(String responseBody) {
             this.responseBody = responseBody;
         }
 
@@ -359,7 +391,7 @@ public class MarathonRecorderTest {
             return responseCode;
         }
 
-        public void setResponseCode(int responseCode) {
+        void setResponseCode(int responseCode) {
             this.responseCode = responseCode;
         }
 
@@ -367,22 +399,24 @@ public class MarathonRecorderTest {
             this.requestCount = 0;
         }
 
-        public List<TestRequest> getRequests() {
+        List<TestRequest> getRequests() {
             return requests;
         }
     }
 
-    class TestRequest {
-        private String body;
-        private URI    uri;
+    private class TestRequest {
+        private String  body;
+        private URI     uri;
+        private Headers headers;
 
 
-        public TestRequest(URI uri, String body) {
+        TestRequest(URI uri, String body, Headers headers) {
             this.uri = uri;
             this.body = body;
+            this.headers = headers;
         }
 
-        public String getBody() {
+        String getBody() {
             return body;
         }
 
@@ -396,6 +430,10 @@ public class MarathonRecorderTest {
 
         public void setUri(URI uri) {
             this.uri = uri;
+        }
+
+        Headers getHeaders() {
+            return headers;
         }
     }
 }

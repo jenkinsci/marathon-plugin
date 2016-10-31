@@ -6,6 +6,7 @@ import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
@@ -162,6 +163,10 @@ public class MarathonRecorder extends Recorder implements AppConfig {
                 // file is a directory or something.
                 build.setResult(Result.FAILURE);
                 log(logger, "Application Definition is not a file:");
+                log(logger, e.getMessage());
+            } catch (AuthenticationException e) {
+                build.setResult(Result.FAILURE);
+                log(logger, "Authentication to Marathon instance failed:");
                 log(logger, e.getMessage());
             }
 
