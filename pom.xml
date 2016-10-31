@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -7,7 +8,7 @@
         <artifactId>plugin</artifactId>
         <!-- Baseline Jenkins version you use to build and test the plugin. Users must have this version or newer to run. -->
         <version>1.642.1</version>
-        <relativePath />
+        <relativePath/>
     </parent>
     <groupId>com.mesosphere.velocity</groupId>
     <artifactId>marathon</artifactId>
@@ -23,11 +24,11 @@
             <url>http://opensource.org/licenses/MIT</url>
         </license>
     </licenses>
-    <developers>        
+    <developers>
         <developer>
             <id>aquamatthias</id>
             <name>Matthias Veit</name>
-            <email>matthias@mesosphere.io </email>
+            <email>matthias@mesosphere.io</email>
         </developer>
         <developer>
             <id>colin-msphere</id>
@@ -56,13 +57,15 @@
         </developer>
     </developers>
     <properties>
-        <marathon.client.version>0.3.0</marathon.client.version>
-        <pipeline.version>1.13</pipeline.version>
-        <junit.version>4.11</junit.version>
-        <mockito.version>1.10.19</mockito.version>
-        <powermock.version>1.6.2</powermock.version>
+        <auth0-jwt.version>2.2.1</auth0-jwt.version>
         <credentials.version>1.22</credentials.version>
+        <http.version>4.5.1</http.version>
+        <junit.version>4.11</junit.version>
+        <marathon.client.version>0.3.0</marathon.client.version>
+        <mockito.version>1.10.19</mockito.version>
+        <pipeline.version>1.13</pipeline.version>
         <plain-credentials.version>1.1</plain-credentials.version>
+        <powermock.version>1.6.2</powermock.version>
     </properties>
 
     <dependencies>
@@ -82,6 +85,18 @@
             <groupId>com.mesosphere</groupId>
             <artifactId>marathon-client</artifactId>
             <version>${marathon.client.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${http.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>${auth0-jwt.version}</version>
         </dependency>
 
         <dependency>
@@ -120,10 +135,10 @@
         </dependency>
     </dependencies>
     <scm>
-      <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
-      <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
-      <url>http://github.com/jenkinsci/${project.artifactId}-plugin</url>
-      <tag>HEAD</tag>
+        <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
+        <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
+        <url>http://github.com/jenkinsci/${project.artifactId}-plugin</url>
+        <tag>HEAD</tag>
     </scm>
     <repositories>
         <repository>
@@ -138,15 +153,15 @@
         </pluginRepository>
     </pluginRepositories>
     <build>
- 	 <plugins>
-  	   <plugin>
-    	     <groupId>org.apache.maven.plugins</groupId>
-      	     <artifactId>maven-javadoc-plugin</artifactId>
-      	     <configuration>
-         	<additionalparam>-Xdoclint:none</additionalparam>
-      	     </configuration>
-    	   </plugin>
-  	 </plugins>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <additionalparam>-Xdoclint:none</additionalparam>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
 </project>
