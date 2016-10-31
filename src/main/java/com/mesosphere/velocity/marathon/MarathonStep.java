@@ -8,12 +8,16 @@ import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
+import hudson.model.Item;
+import hudson.util.ListBoxModel;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -138,6 +142,9 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         public DescriptorImpl() {
             super(MarathonStepExecution.class);
         }
+        @Inject
+        private MarathonRecorder.DescriptorImpl delegate;
+
 
         @Override
         public String getFunctionName() {
@@ -148,6 +155,10 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         @Override
         public String getDisplayName() {
             return "Marathon Deployment";
+        }
+
+        public ListBoxModel doFillServiceAccountIdItems(@AncestorInPath Item project) {
+            return delegate.doFillServiceAccountIdItems(project);
         }
     }
 
