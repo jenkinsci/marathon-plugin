@@ -30,6 +30,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       String              docker;
     private       String              filename;
     private       String              credentialsId;
+    private       String              serviceAccountId;
     private       boolean             forceUpdate;
 
     @DataBoundConstructor
@@ -120,6 +121,16 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     public void setFilename(@Nonnull final String filename) {
         if (filename.trim().length() > 0)
             this.filename = filename;
+    }
+
+    @Override
+    public String getServiceAccountId() {
+        return serviceAccountId;
+    }
+
+    @DataBoundSetter
+    public void setServiceAccountId(String serviceAccountId) {
+        this.serviceAccountId = serviceAccountId;
     }
 
     @Extension

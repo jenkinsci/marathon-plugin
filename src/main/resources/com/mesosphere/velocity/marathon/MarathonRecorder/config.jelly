@@ -12,6 +12,10 @@
         <c:select/>
     </f:entry>
 
+    <f:entry field="serviceAccountId" title="${%Service Account Credentials}">
+        <c:select/>
+    </f:entry>
+
     <f:entry title="${%Application Definition}" field="filename">
         <f:textbox />
     </f:entry>

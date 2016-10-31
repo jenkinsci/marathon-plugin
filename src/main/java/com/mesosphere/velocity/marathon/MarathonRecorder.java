@@ -51,6 +51,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       String              docker;
     private       String              filename;
     private       String              credentialsId;
+    private       String              serviceAccountId;
     private       boolean             forceUpdate;
 
     @DataBoundConstructor
@@ -190,6 +191,10 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         return this.credentialsId;
     }
 
+    public String getServiceAccountId() {
+        return serviceAccountId;
+    }
+
     @DataBoundSetter
     public void setCredentialsId(final String credentialsId) {
         this.credentialsId = credentialsId;
@@ -216,6 +221,11 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setDocker(@Nonnull final String docker) {
         this.docker = docker;
+    }
+
+    @DataBoundSetter
+    public void setServiceAccountId(final String serviceAccountId) {
+        this.serviceAccountId = serviceAccountId;
     }
 
     /**
@@ -257,6 +267,15 @@ public class MarathonRecorder extends Recorder implements AppConfig {
                     CredentialsMatchers.anyOf(
                             CredentialsMatchers.instanceOf(StringCredentials.class),
                             CredentialsMatchers.instanceOf(UsernamePasswordCredentials.class)
+                    ),
+                    CredentialsProvider.lookupCredentials(StandardCredentials.class, item, null, Collections.<DomainRequirement>emptyList())
+            );
+        }
+
+        public ListBoxModel doFillServiceAccountIdItems(@AncestorInPath Item item) {
+            return new StandardListBoxModel().withEmptySelection().withMatching(
+                    CredentialsMatchers.anyOf(
+                            CredentialsMatchers.instanceOf(StringCredentials.class)
                     ),
                     CredentialsProvider.lookupCredentials(StandardCredentials.class, item, null, Collections.<DomainRequirement>emptyList())
             );
