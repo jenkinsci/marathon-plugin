@@ -92,9 +92,10 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                     final StringCredentials dcosCredentials = MarathonBuilderUtils.getTokenCredentials(config.getServiceAccountId());
                     final TokenAuthProvider provider        = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, dcosCredentials);
                     if (provider != null) provider.updateTokenCredentials(tokenCredentials);
+
+                    // use the new token
+                    doUpdate(userCredentials, MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId()));
                 }
-                // use the new token
-                doUpdate(userCredentials, MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId()));
             }
         }
 
