@@ -1,11 +1,13 @@
 package com.mesosphere.velocity.marathon.util;
 
+import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import hudson.security.ACL;
 import jenkins.model.Jenkins;
+import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.util.Collections;
@@ -66,13 +68,7 @@ public class MarathonBuilderUtils {
      * @return Jenkins credentials
      */
     public static StringCredentials getTokenCredentials(final String credentialsId) {
-        if (credentialsId == null || credentialsId.equals(""))
-            return null;
-        return CredentialsMatchers.firstOrNull(
-                CredentialsProvider.lookupCredentials(StringCredentials.class,
-                        Jenkins.getInstance(), ACL.SYSTEM, Collections.<DomainRequirement>emptyList()),
-                CredentialsMatchers.withId(credentialsId)
-        );
+        return getJenkinsCredentials(credentialsId, StringCredentials.class);
     }
 
     /**
@@ -82,10 +78,21 @@ public class MarathonBuilderUtils {
      * @return Jenkins credentials
      */
     public static UsernamePasswordCredentials getUsernamePasswordCredentials(final String credentialsId) {
-        if (credentialsId == null || credentialsId.equals(""))
+        return getJenkinsCredentials(credentialsId, UsernamePasswordCredentials.class);
+    }
+
+    /**
+     * Get the credentials identified by the given id from the Jenkins credential store.
+     *
+     * @param credentialsId    The id for the credentials
+     * @param credentialsClass The class of credentials to return
+     * @return Jenkins credentials
+     */
+    public static <T extends Credentials> T getJenkinsCredentials(final String credentialsId, final Class<T> credentialsClass) {
+        if (StringUtils.isEmpty(credentialsId))
             return null;
         return CredentialsMatchers.firstOrNull(
-                CredentialsProvider.lookupCredentials(UsernamePasswordCredentials.class,
+                CredentialsProvider.lookupCredentials(credentialsClass,
                         Jenkins.getInstance(), ACL.SYSTEM, Collections.<DomainRequirement>emptyList()),
                 CredentialsMatchers.withId(credentialsId)
         );
