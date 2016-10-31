@@ -1,4 +1,4 @@
-package com.mesosphere.velocity.marathon.impl;
+package com.mesosphere.velocity.marathon.auth;
 
 public class DcosLoginPayload {
     private String uid;

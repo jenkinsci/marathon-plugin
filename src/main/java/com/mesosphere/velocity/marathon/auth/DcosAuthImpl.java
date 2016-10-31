@@ -1,11 +1,12 @@
-package com.mesosphere.velocity.marathon.impl;
+package com.mesosphere.velocity.marathon.auth;
 
 import com.auth0.jwt.Algorithm;
 import com.auth0.jwt.JWTAlgorithmException;
 import com.auth0.jwt.JWTSigner;
 import com.auth0.jwt.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import com.auth0.jwt.internal.org.bouncycastle.util.io.pem.PemReader;
-import com.mesosphere.velocity.marathon.interfaces.TokenAuthProvider;
+import com.cloudbees.plugins.credentials.Credentials;
+import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import hudson.util.Secret;
 import net.sf.json.JSONObject;
 import org.apache.http.HttpEntity;
@@ -27,21 +28,21 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.HashMap;
 import java.util.List;
 
-public class DcosAuthImpl implements TokenAuthProvider {
+public class DcosAuthImpl extends TokenAuthProvider {
     /**
      * The name of the cookie that contains the authentication token needed for future requests.
      */
-    public final static    String DCOS_AUTH_COOKIE     = "dcos-acs-auth-cookie";
+    public final static String DCOS_AUTH_COOKIE = "dcos-acs-auth-cookie";
 
     /**
      * The JSON payload expected by the DC/OS login end point.
      */
-    protected final static String DCOS_AUTH_PAYLOAD    = "{\"uid\":\"%s\",\"token\":\"%s\"}";
+    protected final static String DCOS_AUTH_PAYLOAD = "{\"uid\":\"%s\",\"token\":\"%s\"}";
 
     /**
      * The JSON field that holds the user id required by DC/OS
      */
-    private final static   String DCOS_AUTH_USER_FIELD = "uid";
+    private final static String DCOS_AUTH_USER_FIELD = "uid";
 
     /**
      * The JSON field that holds the algorithm used to create "private_key".
@@ -82,11 +83,11 @@ public class DcosAuthImpl implements TokenAuthProvider {
         );
     }
 
-    public DcosAuthImpl(final StringCredentials credentials,
-                        final JWTSigner.Options options,
-                        final ContentType contentType,
-                        final HttpClientBuilder clientBuilder,
-                        final HttpClientContext clientContext) {
+    DcosAuthImpl(final StringCredentials credentials,
+                 final JWTSigner.Options options,
+                 final ContentType contentType,
+                 final HttpClientBuilder clientBuilder,
+                 final HttpClientContext clientContext) {
         this.options = options;
 
         this.contentType = contentType;
@@ -142,7 +143,43 @@ public class DcosAuthImpl implements TokenAuthProvider {
         this.contentType = ContentType.create(contentType);
     }
 
-    public DcosLoginPayload createDcosLoginPayload() throws JWTAlgorithmException, IOException, NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, InvalidKeySpecException {
+    @Override
+    public void updateTokenCredentials(Credentials tokenCredentials) throws AuthenticationException {
+        if (tokenCredentials instanceof StringCredentials) {
+            final StringCredentials oldCredentials = (StringCredentials) tokenCredentials;
+
+            if (credentials != null) {
+                try {
+                    final String token = getToken();
+                    if (token == null) {
+                        throw new AuthenticationException("Failed to retrieve authentication token from DC/OS.");
+                    }
+                    updateTokenCredentials(oldCredentials, token);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException(e.getMessage());
+                } catch (JWTAlgorithmException e) {
+                    // requested algorithm is not supported
+                    e.printStackTrace();
+                    throw new AuthenticationException(e.getMessage());
+                } catch (InvalidKeyException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException(e.getMessage());
+                } catch (NoSuchAlgorithmException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException(e.getMessage());
+                } catch (InvalidKeySpecException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException(e.getMessage());
+                } catch (NoSuchProviderException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException(e.getMessage());
+                }
+            }
+        }
+    }
+
+    DcosLoginPayload createDcosLoginPayload() throws JWTAlgorithmException, IOException, NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, InvalidKeySpecException {
         final JSONObject jsonObject    = constructJsonFromCredentials();
         final String     uid           = jsonObject.getString(DCOS_AUTH_USER_FIELD);
         final String     loginEndpoint = jsonObject.getString(DCOS_AUTH_LOGINENDPOINT_FIELD);

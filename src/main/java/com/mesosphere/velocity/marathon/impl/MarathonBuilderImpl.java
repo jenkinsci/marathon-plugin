@@ -1,12 +1,6 @@
 package com.mesosphere.velocity.marathon.impl;
 
-import com.auth0.jwt.JWTAlgorithmException;
-import com.cloudbees.plugins.credentials.Credentials;
-import com.cloudbees.plugins.credentials.CredentialsProvider;
-import com.cloudbees.plugins.credentials.CredentialsStore;
-import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
-import com.cloudbees.plugins.credentials.domains.Domain;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
@@ -14,14 +8,11 @@ import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
-import com.mesosphere.velocity.marathon.interfaces.TokenAuthProvider;
+import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
-import hudson.ExtensionList;
 import hudson.FilePath;
 import hudson.Util;
-import hudson.util.Secret;
-import jenkins.model.Jenkins;
 import mesosphere.marathon.client.Marathon;
 import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
@@ -30,13 +21,8 @@ import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
-import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 
 import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -98,12 +84,17 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 if (marathonException.getStatus() != 401) {
                     throw marathonException;
                 }
-                LOGGER.warning("Received 401 when updating Marathon application.");
 
-                // fetch a new token and update the credential store
-                final StringCredentials newTokenCredentials = doDcosTokenUpdate(tokenCredentials);
+                LOGGER.warning("Received 401 when updating Marathon application.");
+                // check if service account creds is populated, and if so get DC/OS auth.
+                final String serviceCredentialsId = config.getServiceAccountId();
+                if (serviceCredentialsId != null && serviceCredentialsId.trim().length() > 0) {
+                    final StringCredentials dcosCredentials = MarathonBuilderUtils.getTokenCredentials(config.getServiceAccountId());
+                    final TokenAuthProvider provider        = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, dcosCredentials);
+                    if (provider != null) provider.updateTokenCredentials(tokenCredentials);
+                }
                 // use the new token
-                doUpdate(userCredentials, newTokenCredentials);
+                doUpdate(userCredentials, MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId()));
             }
         }
 
@@ -185,89 +176,6 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     @Override
     public MarathonBuilder toFile() throws InterruptedException, IOException, MarathonFileInvalidException {
         return toFile(null);
-    }
-
-    private StringCredentials doDcosTokenUpdate(final StringCredentials tokenCredentials) throws AuthenticationException, MarathonException {// the next String credentials are of the JSON variety
-        final StringCredentials dcosCredentials = MarathonBuilderUtils.getTokenCredentials(config.getServiceAccountId());
-
-        if (dcosCredentials != null) {
-            final TokenAuthProvider provider = new DcosAuthImpl(dcosCredentials);
-            try {
-                final String token = provider.getToken();
-
-                if (token == null) {
-                    throw new AuthenticationException("Failed to retrieve authentication token from DC/OS.");
-                }
-
-                // retrieved a new token, now to update the existing credential in `tokenCredentials`
-                final StringCredentials newTokenCredentials = new StringCredentialsImpl(
-                        tokenCredentials.getScope(),
-                        tokenCredentials.getId(),
-                        tokenCredentials.getDescription(),
-                        Secret.fromString(token));
-                updateTokenCredentials(tokenCredentials, newTokenCredentials);
-                return newTokenCredentials;
-            } catch (IOException e) {
-                e.printStackTrace();
-                throw new AuthenticationException(e.getMessage());
-            } catch (JWTAlgorithmException e) {
-                // requested algorithm is not supported
-                e.printStackTrace();
-                throw new AuthenticationException(e.getMessage());
-            } catch (InvalidKeyException e) {
-                e.printStackTrace();
-                throw new AuthenticationException(e.getMessage());
-            } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
-                throw new AuthenticationException(e.getMessage());
-            } catch (InvalidKeySpecException e) {
-                e.printStackTrace();
-                throw new AuthenticationException(e.getMessage());
-            } catch (NoSuchProviderException e) {
-                e.printStackTrace();
-                throw new AuthenticationException(e.getMessage());
-            }
-        }
-
-        return tokenCredentials;
-    }
-
-    private void updateTokenCredentials(final StringCredentials tokenCredentials, final Credentials creds) throws IOException {
-        final SystemCredentialsProvider.ProviderImpl systemProvider = ExtensionList.lookup(CredentialsProvider.class)
-                .get(SystemCredentialsProvider.ProviderImpl.class);
-        final CredentialsStore credentialsStore = systemProvider.getStore(Jenkins.getInstance());
-
-        // there should only be one credential to update, but there are multiple domains
-        // that need to be searched. wasFound will track whether the proper credential
-        // was located, and if so break out of both loops.
-        boolean wasFound = false;
-        for (Domain d : credentialsStore.getDomains()) {
-            List<Credentials> credentialsList = credentialsStore.getCredentials(d);
-            for (Credentials c : credentialsList) {
-                if (c instanceof StringCredentials) {
-                    // cast
-                    final StringCredentials stringCredentials = (StringCredentials) c;
-                    if (tokenCredentials.getId().equals(stringCredentials.getId())) {
-                        final boolean wasUpdated = credentialsStore.updateCredentials(d, c, creds);
-                        if (!wasUpdated) {
-                            LOGGER.warning("Updating Token credential failed during update call.");
-                        }
-                        // set this as found, even if update itself failed.
-                        wasFound = true;
-                        break;
-                    }
-                }
-            }
-
-            // if the target credential was found, no need to check more domains.
-            if (wasFound) {
-                break;
-            }
-        }
-
-        if (!wasFound) {
-            LOGGER.warning("Token credential was not found in the Credentials Store.");
-        }
     }
 
     private void doUpdate(UsernamePasswordCredentials userCredentials, StringCredentials tokenCredentials) throws MarathonException {
