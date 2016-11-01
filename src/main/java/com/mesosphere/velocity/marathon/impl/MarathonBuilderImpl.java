@@ -1,6 +1,7 @@
 package com.mesosphere.velocity.marathon.impl;
 
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
+import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
@@ -8,7 +9,6 @@ import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
-import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -68,8 +68,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * this will try to retrieve a new token from DC/OS using JWT credentials.
      *
      * @return this Marathon builder
-     * @throws MarathonException
-     * @throws AuthenticationException
+     * @throws MarathonException       If Marathon does not return a 20x OK response
+     * @throws AuthenticationException If an authentication provider was used and encountered a problem.
      */
     @Override
     public MarathonBuilder update() throws MarathonException, AuthenticationException {
@@ -81,19 +81,32 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 doUpdate(userCredentials, tokenCredentials);
             } catch (MarathonException marathonException) {
                 LOGGER.warning("Marathon Exception: " + marathonException.getMessage());
-                if (marathonException.getStatus() != 401) {
+
+                // 401 results may be possible to resolve, others not so much
+                if (marathonException.getStatus() != 401) throw marathonException;
+                LOGGER.fine("Received 401 when updating Marathon application.");
+
+                // check if service account credentials were configured
+                final String serviceCredentialsId = config.getServiceAccountId();
+                if (serviceCredentialsId == null || serviceCredentialsId.trim().length() == 0) {
                     throw marathonException;
                 }
 
-                LOGGER.warning("Received 401 when updating Marathon application.");
-                // check if service account creds is populated, and if so get DC/OS auth.
-                final String serviceCredentialsId = config.getServiceAccountId();
-                if (serviceCredentialsId != null && serviceCredentialsId.trim().length() > 0) {
-                    final StringCredentials dcosCredentials = MarathonBuilderUtils.getTokenCredentials(config.getServiceAccountId());
-                    final TokenAuthProvider provider        = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, dcosCredentials);
-                    if (provider != null) provider.updateTokenCredentials(tokenCredentials);
+                // check if service account credentials exist in credentials store.
+                final StringCredentials dcosCredentials = MarathonBuilderUtils.getTokenCredentials(config.getServiceAccountId());
+                if (dcosCredentials == null) throw marathonException;
 
-                    // use the new token
+                // try to determine correct provider and update token
+                // (there is only one provider thus far, so this is simple)
+                boolean                 updatedToken = false;
+                final TokenAuthProvider provider     = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, dcosCredentials);
+                if (provider != null) {
+                    provider.updateTokenCredentials(tokenCredentials);
+                    updatedToken = true;
+                }
+
+                // use the new token if it was updated
+                if (updatedToken) {
                     doUpdate(userCredentials, MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId()));
                 }
             }

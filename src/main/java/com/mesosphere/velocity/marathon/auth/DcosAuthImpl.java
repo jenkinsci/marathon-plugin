@@ -22,27 +22,30 @@ import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.security.*;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class DcosAuthImpl extends TokenAuthProvider {
     /**
      * The name of the cookie that contains the authentication token needed for future requests.
      */
-    public final static String DCOS_AUTH_COOKIE = "dcos-acs-auth-cookie";
-
+    public final static    String DCOS_AUTH_COOKIE     = "dcos-acs-auth-cookie";
     /**
      * The JSON payload expected by the DC/OS login end point.
      */
-    protected final static String DCOS_AUTH_PAYLOAD = "{\"uid\":\"%s\",\"token\":\"%s\"}";
-
+    protected final static String DCOS_AUTH_PAYLOAD    = "{\"uid\":\"%s\",\"token\":\"%s\"}";
+    private static final   Logger LOGGER               = Logger.getLogger(DcosAuthImpl.class.getName());
     /**
      * The JSON field that holds the user id required by DC/OS
      */
-    private final static String DCOS_AUTH_USER_FIELD = "uid";
+    private final static   String DCOS_AUTH_USER_FIELD = "uid";
 
     /**
      * The JSON field that holds the algorithm used to create "private_key".
@@ -113,7 +116,7 @@ public class DcosAuthImpl extends TokenAuthProvider {
     }
 
     @Override
-    public String getToken() throws IOException, JWTAlgorithmException, InvalidKeyException, InvalidKeySpecException, NoSuchAlgorithmException, NoSuchProviderException {
+    public String getToken() throws AuthenticationException {
         final DcosLoginPayload payload        = createDcosLoginPayload();
         final HttpEntity       stringPayload  = new StringEntity(payload.toString(), this.contentType);
         final RequestBuilder   requestBuilder = RequestBuilder.post().setUri(payload.getLoginURL());
@@ -124,7 +127,12 @@ public class DcosAuthImpl extends TokenAuthProvider {
         }
 
         final HttpUriRequest request = requestBuilder.build();
-        client.build().execute(request, context).close();
+        try {
+            client.build().execute(request, context).close();
+        } catch (IOException e) {
+            LOGGER.warning(e.getMessage());
+            throw new AuthenticationException("Failed to execute web request to login endpoint.\n" + e.getMessage());
+        }
         return getTokenCookie(context);
     }
 
@@ -144,7 +152,7 @@ public class DcosAuthImpl extends TokenAuthProvider {
     }
 
     @Override
-    public void updateTokenCredentials(Credentials tokenCredentials) throws AuthenticationException {
+    public boolean updateTokenCredentials(final Credentials tokenCredentials) throws AuthenticationException {
         if (tokenCredentials instanceof StringCredentials) {
             final StringCredentials oldCredentials = (StringCredentials) tokenCredentials;
 
@@ -154,47 +162,47 @@ public class DcosAuthImpl extends TokenAuthProvider {
                     if (token == null) {
                         throw new AuthenticationException("Failed to retrieve authentication token from DC/OS.");
                     }
-                    updateTokenCredentials(oldCredentials, token);
+                    return !(updateTokenCredentials(oldCredentials, token).equals(oldCredentials));
                 } catch (IOException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException(e.getMessage());
-                } catch (JWTAlgorithmException e) {
-                    // requested algorithm is not supported
-                    e.printStackTrace();
-                    throw new AuthenticationException(e.getMessage());
-                } catch (InvalidKeyException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException(e.getMessage());
-                } catch (NoSuchAlgorithmException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException(e.getMessage());
-                } catch (InvalidKeySpecException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException(e.getMessage());
-                } catch (NoSuchProviderException e) {
                     e.printStackTrace();
                     throw new AuthenticationException(e.getMessage());
                 }
             }
+        } else {
+            LOGGER.warning("Invalid credential type, expected String Credentials, received: " + tokenCredentials.getClass().getName());
         }
+
+        return false;
     }
 
-    DcosLoginPayload createDcosLoginPayload() throws JWTAlgorithmException, IOException, NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, InvalidKeySpecException {
+    /**
+     * Create a payload object for DC/OS. This contains the JSON payload for the web request and login endpoint (URL).
+     *
+     * @return DC/OS payload object
+     * @throws AuthenticationException If error occurred during DC/OS authentication process
+     */
+    DcosLoginPayload createDcosLoginPayload() throws AuthenticationException {
         final JSONObject jsonObject    = constructJsonFromCredentials();
         final String     uid           = jsonObject.getString(DCOS_AUTH_USER_FIELD);
         final String     loginEndpoint = jsonObject.getString(DCOS_AUTH_LOGINENDPOINT_FIELD);
         final String     requestedAlg  = jsonObject.getString(DCOS_AUTH_SCHEME_FIELD);
-        final Algorithm  algorithm     = Algorithm.findByName(requestedAlg);
 
-        // try to set the algorithm to what was requested
-        this.options.setAlgorithm(algorithm);
-        this.options.setExpirySeconds(300); // 5 minutes expiration time
-        this.options.setIssuedAt(true);
+        try {
+            final Algorithm algorithm = Algorithm.findByName(requestedAlg);
 
-        final JWTSigner               signer = createSigner(jsonObject.getString(DCOS_AUTH_PRIVATEKEY_FIELD));
-        final HashMap<String, Object> claims = createClaims(uid);
-        final String                  jwt    = signer.sign(claims, this.options);
-        return DcosLoginPayload.create(loginEndpoint, uid, jwt);
+            // try to set the algorithm to what was requested
+            this.options.setAlgorithm(algorithm);
+            this.options.setExpirySeconds(300); // 5 minutes expiration time
+            this.options.setIssuedAt(true);
+
+            final JWTSigner               signer = createSigner(jsonObject.getString(DCOS_AUTH_PRIVATEKEY_FIELD));
+            final HashMap<String, Object> claims = createClaims(uid);
+            final String                  jwt    = signer.sign(claims, this.options);
+            return DcosLoginPayload.create(loginEndpoint, uid, jwt);
+        } catch (JWTAlgorithmException e) {
+            e.printStackTrace();
+            throw new AuthenticationException("Unknown algorithm: " + e.getMessage());
+        }
     }
 
     private JSONObject constructJsonFromCredentials() {
@@ -202,13 +210,26 @@ public class DcosAuthImpl extends TokenAuthProvider {
         return JSONObject.fromObject(Secret.toString(secret));
     }
 
+    /**
+     * Create the claims that will be signed by the JWT signer.
+     *
+     * @param userId the user id or Service Account name for this request
+     * @return map of claims
+     */
     private HashMap<String, Object> createClaims(final String userId) {
         final HashMap<String, Object> claims = new HashMap<String, Object>(1);
         claims.put("uid", userId);
         return claims;
     }
 
-    private JWTSigner createSigner(final String key) throws JWTAlgorithmException, InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchProviderException, IOException {
+    /**
+     * Create a JWT signer that will sign claims with key.
+     *
+     * @param key String representation of a private key
+     * @return JWT signer
+     * @throws AuthenticationException If an error occurs creating the signer
+     */
+    private JWTSigner createSigner(final String key) throws AuthenticationException {
         switch (this.options.getAlgorithm()) {
             case HS256:
             case HS384:
@@ -217,20 +238,33 @@ public class DcosAuthImpl extends TokenAuthProvider {
             case RS256:
             case RS384:
             case RS512:
-                final KeyFactory keyFactory = KeyFactory.getInstance("RSA", "BC");
                 final PemReader pemParser = new PemReader(new StringReader(key));
                 try {
-                    final byte[]              content = pemParser.readPemObject().getContent();
-                    final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(content);
+                    final byte[]              content    = pemParser.readPemObject().getContent();
+                    final PKCS8EncodedKeySpec keySpec    = new PKCS8EncodedKeySpec(content);
+                    final KeyFactory          keyFactory = KeyFactory.getInstance("RSA", "BC");
                     return new JWTSigner(keyFactory.generatePrivate(keySpec));
                 } catch (IOException e) {
                     e.printStackTrace();
-                    throw e;
+                    throw new AuthenticationException("Error encountered closing PEM reader:\n" + e.getMessage());
+                } catch (NoSuchAlgorithmException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException("Unsupported algorithm: " + e.getMessage());
+                } catch (NoSuchProviderException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException("Unknown provider: " + e.getMessage());
+                } catch (InvalidKeySpecException e) {
+                    e.printStackTrace();
+                    throw new AuthenticationException("Unable to read key: " + e.getMessage());
                 } finally {
-                    pemParser.close();
+                    try {
+                        pemParser.close();
+                    } catch (IOException e) {
+                        LOGGER.warning(e.getMessage());
+                    }
                 }
             default:
-                throw new JWTAlgorithmException("Unsupported signing method");
+                throw new AuthenticationException("Unsupported algorithm: " + this.options.getAlgorithm().getValue());
         }
     }
 }
