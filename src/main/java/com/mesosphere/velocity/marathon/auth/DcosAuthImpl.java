@@ -130,8 +130,9 @@ public class DcosAuthImpl extends TokenAuthProvider {
         try {
             client.build().execute(request, context).close();
         } catch (IOException e) {
-            LOGGER.warning(e.getMessage());
-            throw new AuthenticationException("Failed to execute web request to login endpoint.\n" + e.getMessage());
+            final String errorMessage = "Failed to execute web request to login endpoint.\n" + e.getMessage();
+            LOGGER.warning(errorMessage);
+            throw new AuthenticationException(errorMessage);
         }
         return getTokenCookie(context);
     }
@@ -160,11 +161,13 @@ public class DcosAuthImpl extends TokenAuthProvider {
                 try {
                     final String token = getToken();
                     if (token == null) {
-                        throw new AuthenticationException("Failed to retrieve authentication token from DC/OS.");
+                        final String errorMessage = "Failed to retrieve authentication token from DC/OS.";
+                        LOGGER.warning(errorMessage);
+                        throw new AuthenticationException(errorMessage);
                     }
                     return !(updateTokenCredentials(oldCredentials, token).equals(oldCredentials));
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    LOGGER.warning(e.getMessage());
                     throw new AuthenticationException(e.getMessage());
                 }
             }
@@ -200,8 +203,9 @@ public class DcosAuthImpl extends TokenAuthProvider {
             final String                  jwt    = signer.sign(claims, this.options);
             return DcosLoginPayload.create(loginEndpoint, uid, jwt);
         } catch (JWTAlgorithmException e) {
-            e.printStackTrace();
-            throw new AuthenticationException("Unknown algorithm: " + e.getMessage());
+            final String errorMessage = "Algorithm error: " + e.getMessage();
+            LOGGER.warning(errorMessage);
+            throw new AuthenticationException(errorMessage);
         }
     }
 
@@ -245,17 +249,21 @@ public class DcosAuthImpl extends TokenAuthProvider {
                     final KeyFactory          keyFactory = KeyFactory.getInstance("RSA", "BC");
                     return new JWTSigner(keyFactory.generatePrivate(keySpec));
                 } catch (IOException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException("Error encountered closing PEM reader:\n" + e.getMessage());
+                    final String errorMessage = "Error encountered closing PEM reader:\n" + e.getMessage();
+                    LOGGER.warning(errorMessage);
+                    throw new AuthenticationException(errorMessage);
                 } catch (NoSuchAlgorithmException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException("Unsupported algorithm: " + e.getMessage());
+                    final String errorMessage = "Unsupported algorithm: " + e.getMessage();
+                    LOGGER.warning(errorMessage);
+                    throw new AuthenticationException(errorMessage);
                 } catch (NoSuchProviderException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException("Unknown provider: " + e.getMessage());
+                    final String errorMessage = "Unknown provider: " + e.getMessage();
+                    LOGGER.warning(errorMessage);
+                    throw new AuthenticationException(errorMessage);
                 } catch (InvalidKeySpecException e) {
-                    e.printStackTrace();
-                    throw new AuthenticationException("Unable to read key: " + e.getMessage());
+                    final String errorMessage = "Unable to read key: " + e.getMessage();
+                    LOGGER.warning(errorMessage);
+                    throw new AuthenticationException(errorMessage);
                 } finally {
                     try {
                         pemParser.close();

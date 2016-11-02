@@ -89,6 +89,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 // check if service account credentials were configured
                 final String serviceCredentialsId = config.getServiceAccountId();
                 if (serviceCredentialsId == null || serviceCredentialsId.trim().length() == 0) {
+                    LOGGER.info("Authentication required by Marathon, but service account credentials are not selected.");
                     throw marathonException;
                 }
 
@@ -101,12 +102,12 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 boolean                 updatedToken = false;
                 final TokenAuthProvider provider     = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, dcosCredentials);
                 if (provider != null) {
-                    provider.updateTokenCredentials(tokenCredentials);
-                    updatedToken = true;
+                    updatedToken = provider.updateTokenCredentials(tokenCredentials);
                 }
 
                 // use the new token if it was updated
                 if (updatedToken) {
+                    LOGGER.info("Token was successfully updated.");
                     doUpdate(userCredentials, MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId()));
                 }
             }
