@@ -165,7 +165,8 @@ public class DcosAuthImpl extends TokenAuthProvider {
                         LOGGER.warning(errorMessage);
                         throw new AuthenticationException(errorMessage);
                     }
-                    return !(updateTokenCredentials(oldCredentials, token).equals(oldCredentials));
+                    final StringCredentials updatedCredentials = newTokenCredentials(oldCredentials, token);
+                    return doTokenUpdate(oldCredentials.getId(), updatedCredentials);
                 } catch (IOException e) {
                     LOGGER.warning(e.getMessage());
                     throw new AuthenticationException(e.getMessage());

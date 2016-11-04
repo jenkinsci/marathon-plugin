@@ -51,21 +51,19 @@ public abstract class TokenAuthProvider {
 
     /**
      * Helper method to update a credential stored within the Jenkins Credential Store. This creates a new credential
-     * to replace tokenCredentials and then calls another helper to do the actual update.
+     * to replace tokenCredentials.
      *
      * @param tokenCredentials The current, existing credential to update.
      * @param token            New token value for credential
-     * @return The new credentials that were updated
-     * @throws IOException Thrown if issues accessing the credential store.
+     * @return New Credentials constructed from tokenCredentials
      */
-    StringCredentials updateTokenCredentials(final StringCredentials tokenCredentials, final String token) throws IOException {
+    StringCredentials newTokenCredentials(final StringCredentials tokenCredentials, final String token) {
         // retrieved a new token, now to update the existing credential in `tokenCredentials`
-        final StringCredentials newTokenCredentials = new StringCredentialsImpl(
+        return new StringCredentialsImpl(
                 tokenCredentials.getScope(),
                 tokenCredentials.getId(),
                 tokenCredentials.getDescription(),
                 Secret.fromString(token));
-        return doTokenUpdate(tokenCredentials, newTokenCredentials) ? newTokenCredentials : tokenCredentials;
     }
 
     /**
@@ -73,11 +71,11 @@ public abstract class TokenAuthProvider {
      * <p>
      * This searches all domains for the id associated with tokenCredentials and updates the first credential it finds.
      *
-     * @param tokenCredentials Existing credentials that should be updated.
-     * @param creds            New credentials
+     * @param tokenId Existing credentials that should be updated.
+     * @param creds   New credentials
      * @throws IOException If problems reading or writing to Jenkins Credential Store
      */
-    private boolean doTokenUpdate(final StringCredentials tokenCredentials, final Credentials creds) throws IOException {
+    boolean doTokenUpdate(final String tokenId, final Credentials creds) throws IOException {
         final SystemCredentialsProvider.ProviderImpl systemProvider = ExtensionList.lookup(CredentialsProvider.class)
                 .get(SystemCredentialsProvider.ProviderImpl.class);
         final CredentialsStore credentialsStore = systemProvider.getStore(Jenkins.getInstance());
@@ -90,7 +88,7 @@ public abstract class TokenAuthProvider {
                 if (!(c instanceof StringCredentials)) continue;
 
                 final StringCredentials stringCredentials = (StringCredentials) c;
-                if (tokenCredentials.getId().equals(stringCredentials.getId())) {
+                if (stringCredentials.getId().equals(tokenId)) {
                     final boolean wasUpdated = credentialsStore.updateCredentials(d, c, creds);
                     if (!wasUpdated) {
                         LOGGER.warning("Updating Token credential failed during update call.");
