@@ -41,8 +41,6 @@ public abstract class TokenAuthProvider {
      */
     public abstract String getToken() throws AuthenticationException;
 
-    public abstract void setPayload(HttpEntity entity);
-
     public abstract void setContentType(ContentType contentType);
 
     public abstract void setContentType(String contentType);

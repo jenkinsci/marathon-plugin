@@ -71,7 +71,6 @@ public class DcosAuthImpl extends TokenAuthProvider {
 
     private JWTSigner.Options options;
     private ContentType       contentType;
-    private HttpEntity        payload;
     private HttpClientBuilder client;
     private HttpClientContext context;
     private StringCredentials credentials;
@@ -99,34 +98,29 @@ public class DcosAuthImpl extends TokenAuthProvider {
         this.credentials = credentials;
     }
 
-    private String getTokenCookie(final HttpClientContext context) {
+    private String getTokenFromCookie(final HttpClientContext context) {
         final CookieStore  cookieStore = context.getCookieStore();
         final List<Cookie> cookies     = cookieStore.getCookies();
 
-        String cookieValue = null;
-
         for (final Cookie c : cookies) {
-            if (c.getName().equals(DCOS_AUTH_COOKIE)) {
-                cookieValue = c.getValue();
-                break;
-            }
+            if (c.getName().equals(DCOS_AUTH_COOKIE)) return c.getValue();
         }
 
-        return cookieValue;
+        return null;
     }
 
     @Override
     public String getToken() throws AuthenticationException {
-        final DcosLoginPayload payload        = createDcosLoginPayload();
-        final HttpEntity       stringPayload  = new StringEntity(payload.toString(), this.contentType);
-        final RequestBuilder   requestBuilder = RequestBuilder.post().setUri(payload.getLoginURL());
+        final DcosLoginPayload payload       = createDcosLoginPayload();
+        final HttpEntity       stringPayload = new StringEntity(payload.toString(), this.contentType);
 
-        this.setPayload(stringPayload);
-        if (this.payload != null) {
-            requestBuilder.setEntity(this.payload);
-        }
+        // build request
+        final HttpUriRequest request = RequestBuilder
+                .post()
+                .setUri(payload.getLoginURL())
+                .setEntity(stringPayload)
+                .build();
 
-        final HttpUriRequest request = requestBuilder.build();
         try {
             client.build().execute(request, context).close();
         } catch (IOException e) {
@@ -134,12 +128,8 @@ public class DcosAuthImpl extends TokenAuthProvider {
             LOGGER.warning(errorMessage);
             throw new AuthenticationException(errorMessage);
         }
-        return getTokenCookie(context);
-    }
 
-    @Override
-    public void setPayload(HttpEntity entity) {
-        this.payload = entity;
+        return getTokenFromCookie(context);
     }
 
     @Override
@@ -161,6 +151,7 @@ public class DcosAuthImpl extends TokenAuthProvider {
                 try {
                     final String token = getToken();
                     if (token == null) {
+                        // TODO: better message somewhere in getToken flow of what happened?
                         final String errorMessage = "Failed to retrieve authentication token from DC/OS.";
                         LOGGER.warning(errorMessage);
                         throw new AuthenticationException(errorMessage);
