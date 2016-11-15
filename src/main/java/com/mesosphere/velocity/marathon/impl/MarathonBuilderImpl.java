@@ -95,7 +95,10 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
                 // check if service account credentials exist in credentials store.
                 final StringCredentials dcosCredentials = MarathonBuilderUtils.getTokenCredentials(config.getServiceAccountId());
-                if (dcosCredentials == null) throw marathonException;
+                if (dcosCredentials == null) {
+                    LOGGER.warning("Unable to fetch the requested service account credentials: '" + config.getServiceAccountId() + "'");
+                    throw marathonException;
+                }
 
                 // try to determine correct provider and update token
                 // (there is only one provider thus far, so this is simple)
