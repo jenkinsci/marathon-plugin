@@ -17,7 +17,6 @@ import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -34,7 +33,6 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       String              docker;
     private       String              filename;
     private       String              credentialsId;
-    private       String              serviceAccountId;
     private       boolean             forceUpdate;
 
     @DataBoundConstructor
@@ -127,16 +125,6 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
             this.filename = filename;
     }
 
-    @Override
-    public String getServiceAccountId() {
-        return serviceAccountId;
-    }
-
-    @DataBoundSetter
-    public void setServiceAccountId(String serviceAccountId) {
-        this.serviceAccountId = serviceAccountId;
-    }
-
     @Extension
     public static class DescriptorImpl extends AbstractStepDescriptorImpl {
         public DescriptorImpl() {
@@ -144,7 +132,6 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         }
         @Inject
         private MarathonRecorder.DescriptorImpl delegate;
-
 
         @Override
         public String getFunctionName() {
@@ -157,8 +144,8 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
             return "Marathon Deployment";
         }
 
-        public ListBoxModel doFillServiceAccountIdItems(@AncestorInPath Item project) {
-            return delegate.doFillServiceAccountIdItems(project);
+        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item project) {
+            return delegate.doFillCredentialsIdItems(project);
         }
     }
 

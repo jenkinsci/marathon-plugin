@@ -45,13 +45,6 @@ public interface AppConfig {
     String getCredentialsId();
 
     /**
-     * Get the Jenkins credentials id for the Service Account details.
-     *
-     * @return credentials id
-     */
-    String getServiceAccountId();
-
-    /**
      * Return a list of configured URIs. These will be downloaded into the container
      * sandbox prior to the Marathon application starting.
      *
