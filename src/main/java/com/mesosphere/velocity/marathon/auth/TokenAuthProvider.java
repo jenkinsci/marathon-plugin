@@ -9,7 +9,8 @@ import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import hudson.ExtensionList;
 import hudson.util.Secret;
 import jenkins.model.Jenkins;
-import org.apache.http.HttpEntity;
+import net.sf.json.JSONException;
+import net.sf.json.JSONObject;
 import org.apache.http.entity.ContentType;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
@@ -53,11 +54,19 @@ public abstract class TokenAuthProvider {
      */
     StringCredentials newTokenCredentials(final StringCredentials tokenCredentials, final String token) {
         // retrieved a new token, now to update the existing credential in `tokenCredentials`
+        JSONObject json;
+        try {
+            json = JSONObject.fromObject(tokenCredentials.getSecret().getPlainText());
+        } catch (JSONException jse) {
+            json = new JSONObject();
+        }
+        json.put("jenkins_token", token);
+
         return new StringCredentialsImpl(
                 tokenCredentials.getScope(),
                 tokenCredentials.getId(),
                 tokenCredentials.getDescription(),
-                Secret.fromString(token));
+                Secret.fromString(json.toString()));
     }
 
     /**
