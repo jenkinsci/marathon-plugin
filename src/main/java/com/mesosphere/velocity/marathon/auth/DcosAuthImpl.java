@@ -133,16 +133,6 @@ public class DcosAuthImpl extends TokenAuthProvider {
     }
 
     @Override
-    public void setContentType(ContentType contentType) {
-        this.contentType = contentType;
-    }
-
-    @Override
-    public void setContentType(String contentType) {
-        this.contentType = ContentType.create(contentType);
-    }
-
-    @Override
     public boolean updateTokenCredentials(final Credentials tokenCredentials) throws AuthenticationException {
         if (tokenCredentials instanceof StringCredentials) {
             final StringCredentials oldCredentials = (StringCredentials) tokenCredentials;
