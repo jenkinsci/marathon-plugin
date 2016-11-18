@@ -4,6 +4,7 @@ import com.auth0.jwt.JWTSigner;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import com.auth0.jwt.internal.org.bouncycastle.util.io.pem.PemReader;
+import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import hudson.util.Secret;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.IOUtils;
@@ -150,7 +151,7 @@ public class DcosAuthImplTest {
         Whitebox.setInternalState(secret, "value", secretText);
 
         when(credentials.getSecret()).thenReturn(secret);
-        when(secret.getEncryptedValue()).thenReturn(secretText);
+        when(secret.getPlainText()).thenReturn(secretText);
 
         final DcosAuthImpl dcosAuth = new DcosAuthImpl(credentials,
                 options,
@@ -184,7 +185,7 @@ public class DcosAuthImplTest {
         Whitebox.setInternalState(secret, "value", secretText);
 
         when(credentials.getSecret()).thenReturn(secret);
-        when(secret.getEncryptedValue()).thenReturn(secretText);
+        when(secret.getPlainText()).thenReturn(secretText);
 
         final DcosAuthImpl dcosAuth = new DcosAuthImpl(credentials,
                 options,
@@ -216,7 +217,7 @@ public class DcosAuthImplTest {
         Whitebox.setInternalState(secret, "value", secretText);
 
         when(credentials.getSecret()).thenReturn(secret);
-        when(secret.getEncryptedValue()).thenReturn(secretText);
+        when(secret.getPlainText()).thenReturn(secretText);
 
         final DcosAuthImpl dcosAuth = new DcosAuthImpl(credentials,
                 options,
@@ -230,6 +231,40 @@ public class DcosAuthImplTest {
 
         final JWTVerifier verifier = new JWTVerifier(HSSecretKey + "a");
         verifier.verify(payload.getToken());
+    }
+
+    /**
+     * Test that an invalid JSON payload does not leak the content of the credentials to the error log.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testSecretIsNotLeakedInException() throws Exception {
+        final Secret secret        = PowerMockito.mock(Secret.class);
+        final String credentialsId = "cred-id";
+        // final payload
+        final String secretText = "this is not a valid json{}";
+        Whitebox.setInternalState(secret, "value", secretText);
+
+        when(credentials.getSecret()).thenReturn(secret);
+        when(credentials.getId()).thenReturn(credentialsId);
+        when(secret.getPlainText()).thenReturn(secretText);
+
+        final DcosAuthImpl dcosAuth = new DcosAuthImpl(credentials,
+                options,
+                ContentType.APPLICATION_JSON,
+                builder,
+                context);
+
+        try {
+            dcosAuth.createDcosLoginPayload();
+            assertTrue("Invalid JSON", false);
+        } catch (AuthenticationException ae) {
+            assertFalse("Contains secret", ae.getMessage().contains(secretText));
+            assertTrue("Does not have the credential id", ae.getMessage().contains(credentialsId));
+        } catch (Exception e) {
+            assertTrue("Wrong exception was thrown", false);
+        }
     }
 
     /**
@@ -252,7 +287,7 @@ public class DcosAuthImplTest {
         Whitebox.setInternalState(secret, "value", secretText);
 
         when(credentials.getSecret()).thenReturn(secret);
-        when(secret.getEncryptedValue()).thenReturn(secretText);
+        when(secret.getPlainText()).thenReturn(secretText);
         when(builder.build()).thenReturn(testClient);
         when(context.getCookieStore()).thenReturn(store);
 
@@ -299,7 +334,7 @@ public class DcosAuthImplTest {
         Whitebox.setInternalState(secret, "value", secretText);
 
         when(credentials.getSecret()).thenReturn(secret);
-        when(secret.getEncryptedValue()).thenReturn(secretText);
+        when(secret.getPlainText()).thenReturn(secretText);
         when(builder.build()).thenReturn(testClient);
         when(context.getCookieStore()).thenReturn(store);
 

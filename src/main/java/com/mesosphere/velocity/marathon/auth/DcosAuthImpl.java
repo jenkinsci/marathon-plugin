@@ -8,6 +8,7 @@ import com.auth0.jwt.internal.org.bouncycastle.util.io.pem.PemReader;
 import com.cloudbees.plugins.credentials.Credentials;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import hudson.util.Secret;
+import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.CookieStore;
@@ -168,11 +169,12 @@ public class DcosAuthImpl extends TokenAuthProvider {
      */
     DcosLoginPayload createDcosLoginPayload() throws AuthenticationException {
         final JSONObject jsonObject    = constructJsonFromCredentials();
-        final String     uid           = jsonObject.getString(DCOS_AUTH_USER_FIELD);
-        final String     loginEndpoint = jsonObject.getString(DCOS_AUTH_LOGINENDPOINT_FIELD);
-        final String     requestedAlg  = jsonObject.getString(DCOS_AUTH_SCHEME_FIELD);
 
         try {
+            final String     uid           = jsonObject.getString(DCOS_AUTH_USER_FIELD);
+            final String     loginEndpoint = jsonObject.getString(DCOS_AUTH_LOGINENDPOINT_FIELD);
+            final String     requestedAlg  = jsonObject.getString(DCOS_AUTH_SCHEME_FIELD);
+
             final Algorithm algorithm = Algorithm.findByName(requestedAlg);
 
             // try to set the algorithm to what was requested
@@ -188,12 +190,23 @@ public class DcosAuthImpl extends TokenAuthProvider {
             final String errorMessage = "Algorithm error: " + e.getMessage();
             LOGGER.warning(errorMessage);
             throw new AuthenticationException(errorMessage);
+        } catch (JSONException je) {
+            final String errorMessage = "Invalid DC/OS service account JSON";
+            LOGGER.warning(errorMessage);
+            throw new AuthenticationException(errorMessage);
         }
     }
 
-    private JSONObject constructJsonFromCredentials() {
+    private JSONObject constructJsonFromCredentials() throws AuthenticationException {
         final Secret secret = credentials.getSecret();
-        return JSONObject.fromObject(Secret.toString(secret));
+        try {
+            return JSONObject.fromObject(Secret.toString(secret));
+        } catch (JSONException e) {
+            // do not spit out the contents of the json...
+            final String errorMessage = "Invalid JSON in credentials '" + credentials.getId() + "'";
+            LOGGER.warning(errorMessage);
+            throw new AuthenticationException(errorMessage);
+        }
     }
 
     /**
