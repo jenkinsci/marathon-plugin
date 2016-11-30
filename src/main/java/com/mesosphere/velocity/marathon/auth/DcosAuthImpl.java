@@ -112,6 +112,7 @@ public class DcosAuthImpl extends TokenAuthProvider {
 
     @Override
     public String getToken() throws AuthenticationException {
+
         final DcosLoginPayload payload       = createDcosLoginPayload();
         final HttpEntity       stringPayload = new StringEntity(payload.toString(), this.contentType);
 
@@ -168,12 +169,17 @@ public class DcosAuthImpl extends TokenAuthProvider {
      * @throws AuthenticationException If error occurred during DC/OS authentication process
      */
     DcosLoginPayload createDcosLoginPayload() throws AuthenticationException {
-        final JSONObject jsonObject    = constructJsonFromCredentials();
+        final JSONObject jsonObject = constructJsonFromCredentials();
 
         try {
-            final String     uid           = jsonObject.getString(DCOS_AUTH_USER_FIELD);
-            final String     loginEndpoint = jsonObject.getString(DCOS_AUTH_LOGINENDPOINT_FIELD);
-            final String     requestedAlg  = jsonObject.getString(DCOS_AUTH_SCHEME_FIELD);
+            final String uid           = jsonObject.getString(DCOS_AUTH_USER_FIELD);
+            final String loginEndpoint = jsonObject.getString(DCOS_AUTH_LOGINENDPOINT_FIELD);
+            final String requestedAlg  = jsonObject.getString(DCOS_AUTH_SCHEME_FIELD);
+
+            // complain that algorithm is invalid.
+            if (!requestedAlg.toUpperCase().equals("RS256")) {
+                throw new AuthenticationException("Unsupported algorithm '" + requestedAlg + "', this must be 'RS256'");
+            }
 
             final Algorithm algorithm = Algorithm.findByName(requestedAlg);
 
@@ -230,13 +236,7 @@ public class DcosAuthImpl extends TokenAuthProvider {
      */
     private JWTSigner createSigner(final String key) throws AuthenticationException {
         switch (this.options.getAlgorithm()) {
-            case HS256:
-            case HS384:
-            case HS512:
-                return new JWTSigner(key);
             case RS256:
-            case RS384:
-            case RS512:
                 final PemReader pemParser = new PemReader(new StringReader(key));
                 try {
                     final byte[]              content    = pemParser.readPemObject().getContent();
@@ -267,7 +267,7 @@ public class DcosAuthImpl extends TokenAuthProvider {
                     }
                 }
             default:
-                throw new AuthenticationException("Unsupported algorithm: " + this.options.getAlgorithm().getValue());
+                throw new AuthenticationException("Unsupported algorithm '" + this.options.getAlgorithm().getValue() + "', this must be 'RS256'");
         }
     }
 }

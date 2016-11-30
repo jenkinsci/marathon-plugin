@@ -43,7 +43,6 @@ import java.io.StringWriter;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Security;
-import java.security.SignatureException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
@@ -98,8 +97,6 @@ public class DcosAuthImplTest {
             "35s53PRMZIRGHr2LYiVfBOcFck9r5O2dshBHYK9lP2OsskO1hyFKjekSAmleh9gU\n" +
             "KyniwDuRB1xPFP3a7XOs12TxtiBG09P7H2uwdxBkNJR8LRXVtx4liTsrmYZqPbT6\n" +
             "1QIDAQAB\n-----END PUBLIC KEY-----";
-    private final static String HSSecretKey          = "abcdefghijklmnabcdefghijklmnabcdefghijkl" +
-            "mnabcdefghijklmnabcdefghijklmnabcdefghijklmnabcdefghijklmnabcdefghijklmn";
     private static final String testUser             = "testuser";
 
     static {
@@ -171,67 +168,36 @@ public class DcosAuthImplTest {
     }
 
     /**
-     * Test that signs JWT with a secret key and verifies the contents
-     * using the same key.
+     * Test that all other algorithms besides RS256 are rejected.
      *
      * @throws Exception
      */
     @Test
     public void testHSSecretKey() throws Exception {
-        final Secret secret = PowerMockito.mock(Secret.class);
-        // final payload
-        final String secretText = String.format(DCOS_AUTH_JSON, testUser, HSSecretKey, "HS512");
+        final Secret   secret = PowerMockito.mock(Secret.class);
+        final String[] algs   = new String[]{"HS512", "HS256", "RS512"};
+        for (final String alg : algs) {
+            final String secretText = String.format(DCOS_AUTH_JSON, testUser, "a secret key", alg);
 
-        Whitebox.setInternalState(secret, "value", secretText);
+            Whitebox.setInternalState(secret, "value", secretText);
 
-        when(credentials.getSecret()).thenReturn(secret);
-        when(secret.getPlainText()).thenReturn(secretText);
+            when(credentials.getSecret()).thenReturn(secret);
+            when(secret.getPlainText()).thenReturn(secretText);
 
-        final DcosAuthImpl dcosAuth = new DcosAuthImpl(credentials,
-                options,
-                ContentType.APPLICATION_JSON,
-                builder,
-                context);
-        final DcosLoginPayload payload = dcosAuth.createDcosLoginPayload();
-        assertNotNull("Payload is null", payload);
-        assertEquals("Uid does not match", testUser, payload.getUid());
-        assertNotNull("Token was not created", payload.getToken());
-
-        final JWTVerifier         verifier = new JWTVerifier(HSSecretKey);
-        final Map<String, Object> claims   = verifier.verify(payload.getToken());
-        assertFalse("Should be populated", claims.isEmpty());
-        assertEquals("Users do not match", testUser, claims.get("uid"));
+            final DcosAuthImpl dcosAuth = new DcosAuthImpl(credentials,
+                    options,
+                    ContentType.APPLICATION_JSON,
+                    builder,
+                    context);
+            try {
+                dcosAuth.createDcosLoginPayload();
+                assertFalse("Invalid algorithm was accepted", true);
+            } catch (AuthenticationException e) {
+                assertTrue("Does not list valid algorithm in message", e.getMessage().contains("RS256"));
+            }
+        }
     }
 
-    /**
-     * Test that signs JWT with a secret key and verifies the contents
-     * cannot be verified using a different key.
-     *
-     * @throws Exception
-     */
-    @Test(expected = SignatureException.class)
-    public void testHSSecretKeyIsWrong() throws Exception {
-        final Secret secret = PowerMockito.mock(Secret.class);
-        // final payload
-        final String secretText = String.format(DCOS_AUTH_JSON, testUser, HSSecretKey, "HS512");
-        Whitebox.setInternalState(secret, "value", secretText);
-
-        when(credentials.getSecret()).thenReturn(secret);
-        when(secret.getPlainText()).thenReturn(secretText);
-
-        final DcosAuthImpl dcosAuth = new DcosAuthImpl(credentials,
-                options,
-                ContentType.APPLICATION_JSON,
-                builder,
-                context);
-        final DcosLoginPayload payload = dcosAuth.createDcosLoginPayload();
-        assertNotNull("Payload is null", payload);
-        assertEquals("Uid does not match", testUser, payload.getUid());
-        assertNotNull("Token was not created", payload.getToken());
-
-        final JWTVerifier verifier = new JWTVerifier(HSSecretKey + "a");
-        verifier.verify(payload.getToken());
-    }
 
     /**
      * Test that an invalid JSON payload does not leak the content of the credentials to the error log.
