@@ -264,8 +264,7 @@ public class MarathonRecorderTest {
 
     private void setupBasicProject(String payload, FreeStyleProject project) {
         // add builders
-        project.getBuildersList().add(new Shell("echo hello"));
-        project.getBuildersList().add(createMarathonFileBuilder(payload));
+        addBuilders(payload, project);
 
         // add post-builder
         project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
@@ -320,14 +319,10 @@ public class MarathonRecorderTest {
         systemStore.addCredentials(Domain.global(), credential);
 
         // add builders
-        project.getBuildersList().add(new Shell("echo hello"));
-        project.getBuildersList().add(createMarathonFileBuilder(payload));
+        addBuilders(payload, project);
 
         // add post-builder
-        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss());
-        marathonRecorder.setCredentialsId("basictoken");
-        project.getPublishersList().add(marathonRecorder);
-
+        addPostBuilders(project, "basictoken");
 
         final FreeStyleBuild build = project.scheduleBuild2(0).get();
         final String         s     = FileUtils.readFileToString(build.getLogFile());
@@ -338,6 +333,91 @@ public class MarathonRecorderTest {
 
         final String authorizationText = handler.getRequests().get(0).getHeaders().getFirst("Authorization");
         assertEquals("Token does not match", "token=" + tokenValue, authorizationText);
+    }
+
+    /**
+     * Test that a JSON credential with "jenkins_token" uses the token value as the authentication token.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testJSONToken() throws Exception {
+        final String           payload     = "{\"id\":\"myapp\"}";
+        final FreeStyleProject project     = j.createFreeStyleProject();
+        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
+
+        handler.setResponseCode(200);
+        handler.setResponseBody(responseStr);
+
+        final SystemCredentialsProvider.ProviderImpl system          = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
+        final CredentialsStore                       systemStore     = system.getStore(j.getInstance());
+        final String                                 tokenValue      = "my secret token";
+        final String                                 credentialValue = "{\"field1\":\"some value\", \"jenkins_token\":\"" + tokenValue + "\"}";
+        final Secret                                 secret          = Secret.fromString(credentialValue);
+        final StringCredentials                      credential      = new StringCredentialsImpl(CredentialsScope.GLOBAL, "jsontoken", "a token for JSON token test", secret);
+
+        systemStore.addCredentials(Domain.global(), credential);
+
+        // add builders
+        addBuilders(payload, project);
+
+        // add post-builder
+        addPostBuilders(project, "jsontoken");
+
+        final FreeStyleBuild build = project.scheduleBuild2(0).get();
+        final String         s     = FileUtils.readFileToString(build.getLogFile());
+
+        assertEquals("Build failed", Result.SUCCESS, build.getResult());
+        assertTrue(s.contains("[Marathon]"));
+        assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
+
+        final String authorizationText = handler.getRequests().get(0).getHeaders().getFirst("Authorization");
+        assertEquals("Token does not match", "token=" + tokenValue, authorizationText);
+    }
+
+    /**
+     * Test that a JSON credential without a "jenkins_token" field and without a proper DC/OS service account value
+     * results in a 401 and only 1 web request.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testInvalidToken() throws Exception {
+        final String           payload = "{\"id\":\"myapp\"}";
+        final FreeStyleProject project = j.createFreeStyleProject();
+
+        final SystemCredentialsProvider.ProviderImpl system          = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
+        final CredentialsStore                       systemStore     = system.getStore(j.getInstance());
+        final String                                 credentialValue = "{\"field1\":\"some value\"}";
+        final Secret                                 secret          = Secret.fromString(credentialValue);
+        final StringCredentials                      credential      = new StringCredentialsImpl(CredentialsScope.GLOBAL, "invalidtoken", "a token for JSON token test", secret);
+
+        systemStore.addCredentials(Domain.global(), credential);
+
+        handler.setResponseCode(401);
+        addBuilders(payload, project);
+
+        // add post-builder
+        addPostBuilders(project, "invalidtoken");
+
+        final FreeStyleBuild build = project.scheduleBuild2(0).get();
+        final String         s     = FileUtils.readFileToString(build.getLogFile());
+
+        assertEquals("Build succeeded", Result.FAILURE, build.getResult());
+        assertTrue(s.contains("[Marathon] Authentication to Marathon instance failed:"));
+        assertTrue(s.contains("[Marathon] Invalid DC/OS service account JSON"));
+        assertEquals("Only 1 request should have been made.", 1, handler.getRequestCount());
+    }
+
+    private void addBuilders(String payload, FreeStyleProject project) {// add builders
+        project.getBuildersList().add(new Shell("echo hello"));
+        project.getBuildersList().add(createMarathonFileBuilder(payload));
+    }
+
+    private void addPostBuilders(FreeStyleProject project, String jsontoken) {
+        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss());
+        marathonRecorder.setCredentialsId(jsontoken);
+        project.getPublishersList().add(marathonRecorder);
     }
 
     private String getHttpAddresss() {
