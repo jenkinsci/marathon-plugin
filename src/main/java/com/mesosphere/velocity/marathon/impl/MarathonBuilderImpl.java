@@ -1,6 +1,9 @@
 package com.mesosphere.velocity.marathon.impl;
 
+import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
+import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
+import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
@@ -17,13 +20,17 @@ import mesosphere.marathon.client.model.v2.App;
 import mesosphere.marathon.client.utils.MarathonException;
 import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
+import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
+import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class MarathonBuilderImpl extends MarathonBuilder {
+    private static final Logger LOGGER = Logger.getLogger(MarathonBuilderImpl.class.getName());
     private AppConfig  config;
     private JSONObject json;
     private App        app;
@@ -59,17 +66,49 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         return config.getDocker();
     }
 
+    /**
+     * Perform the actual update call to Marathon. If a 401 (Unauthenticated) response is received,
+     * this will try to retrieve a new token from DC/OS using JWT credentials.
+     *
+     * @return this Marathon builder
+     * @throws MarathonException       If Marathon does not return a 20x OK response
+     * @throws AuthenticationException If an authentication provider was used and encountered a problem.
+     */
     @Override
-    public MarathonBuilder update() throws MarathonException {
+    public MarathonBuilder update() throws MarathonException, AuthenticationException {
         if (app != null) {
-            final UsernamePasswordCredentials usercreds = MarathonBuilderUtils.getUsernamePasswordCredentials(config.getCredentialsId());
-            final StringCredentials creds = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
-            final Marathon marathon = creds == null ?
-                    usercreds == null ? MarathonClient.getInstance(config.getUrl()) :
-                            MarathonClient.getInstanceWithBasicAuth(config.getUrl(), usercreds.getUsername(), usercreds.getPassword().getPlainText()) :
-                    MarathonClient.getInstanceWithTokenAuth(config.getUrl(), creds.getSecret().getPlainText());
-            marathon.updateApp(app.getId(), app, config.getForceUpdate());   // uses PUT
+            try {
+                doUpdate(config.getCredentialsId());
+            } catch (MarathonException marathonException) {
+                LOGGER.warning("Marathon Exception: " + marathonException.getMessage());
+
+                // 401 results may be possible to resolve, others not so much
+                if (marathonException.getStatus() != 401) throw marathonException;
+                LOGGER.fine("Received 401 when updating Marathon application.");
+
+                final StringCredentials tokenCredentials = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
+                if (tokenCredentials == null) {
+                    LOGGER.warning("Unauthorized (401) and service account credentials are not filled in.");
+                    throw marathonException;
+                }
+
+                // check if service account credentials were configured
+                // try to determine correct provider and update token
+                // (there is only one provider thus far, so this is simple)
+                boolean                 updatedToken = false;
+                final TokenAuthProvider provider     = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, tokenCredentials);
+                if (provider != null) {
+                    updatedToken = provider.updateTokenCredentials(tokenCredentials);
+                }
+
+                // use the new token if it was updated
+                if (updatedToken) {
+                    LOGGER.info("Token was successfully updated.");
+                    doUpdate(config.getCredentialsId());
+                }
+            }
         }
+
         return this;
     }
 
@@ -95,14 +134,14 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder setJson(final JSONObject json) {
-        this.json = json;
-        return this;
+    public JSONObject getJson() {
+        return this.json;
     }
 
     @Override
-    public JSONObject getJson() {
-        return this.json;
+    public MarathonBuilder setJson(final JSONObject json) {
+        this.json = json;
+        return this;
     }
 
     @Override
@@ -148,6 +187,81 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     @Override
     public MarathonBuilder toFile() throws InterruptedException, IOException, MarathonFileInvalidException {
         return toFile(null);
+    }
+
+    /**
+     * Construct a Marathon client based on the provided credentialsId and execute an update for ths configuration's
+     * Marathon application.
+     *
+     * @param credentialsId A string ID for a credential within Jenkin's Credential store
+     * @throws MarathonException thrown if the Marathon service has an error
+     */
+    private void doUpdate(final String credentialsId) throws MarathonException {
+        final Credentials credentials = MarathonBuilderUtils.getJenkinsCredentials(credentialsId, Credentials.class);
+
+        Marathon client;
+
+        if (credentials instanceof UsernamePasswordCredentials) {
+            client = getMarathonClient((UsernamePasswordCredentials) credentials);
+        } else if (credentials instanceof StringCredentials) {
+            client = getMarathonClient((StringCredentials) credentials);
+        } else {
+            client = getMarathonClient();
+        }
+
+        if (client != null) {
+            client.updateApp(app.getId(), app, config.getForceUpdate());
+        }
+    }
+
+    /**
+     * Get a Marathon client with basic auth using the username and password within the provided credentials.
+     *
+     * @param credentials Username and password credentials
+     * @return Marathon client with basic authentication filled in
+     */
+    private Marathon getMarathonClient(UsernamePasswordCredentials credentials) {
+        return MarathonClient
+                .getInstanceWithBasicAuth(config.getUrl(), credentials.getUsername(), credentials.getPassword().getPlainText());
+    }
+
+    /**
+     * Get a Marathon client with Authorization headers using the token within provided credentials. If the content of
+     * credentials is JSON, this will use the "jenkins_token" field; if the content is just a string, that will be
+     * used as the token value.
+     *
+     * @param credentials String credentials
+     * @return Marathon client with token in auth header
+     */
+    private Marathon getMarathonClient(StringCredentials credentials) {
+        String token;
+
+        try {
+            final JSONObject json = JSONObject.fromObject(credentials.getSecret().getPlainText());
+            if (json.has("jenkins_token")) {
+                token = json.getString("jenkins_token");
+            } else {
+                token = "";
+            }
+        } catch (JSONException jse) {
+            token = credentials.getSecret().getPlainText();
+        }
+
+        if (StringUtils.isNotEmpty(token)) {
+            return MarathonClient
+                    .getInstanceWithTokenAuth(config.getUrl(), token);
+        }
+
+        return getMarathonClient();
+    }
+
+    /**
+     * Get a default Marathon client. This does not include any authentication headers.
+     *
+     * @return Marathon client without authentication mechanisms
+     */
+    private Marathon getMarathonClient() {
+        return MarathonClient.getInstance(config.getUrl());
     }
 
     private JSONObject setId() {
