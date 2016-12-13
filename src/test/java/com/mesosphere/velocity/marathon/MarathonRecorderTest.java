@@ -262,6 +262,40 @@ public class MarathonRecorderTest {
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
     }
 
+    /**
+     * Test that the URL is properly put through the replace macro and able to be populated with
+     * Jenkins variables.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testURLMacro() throws Exception {
+        final String           payload     = "{\"id\":\"myapp\"}";
+        final FreeStyleProject project     = j.createFreeStyleProject();
+        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
+        handler.setResponseBody(responseStr);
+
+        // add builders
+        addBuilders(payload, project);
+        // add post-builder
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss() + "/${BUILD_NUMBER}"));
+
+        // run a build with the shell step and recorder publisher
+        final FreeStyleBuild build = project.scheduleBuild2(0).get();
+
+        // get console log
+        final String s = FileUtils.readFileToString(build.getLogFile());
+
+        // assert things
+        assertEquals("Build should pass", Result.SUCCESS, build.getResult());
+        assertTrue(s.contains("[Marathon]"));
+        assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
+
+        assertEquals("App URL should have build number",
+                "/" + String.valueOf(build.getNumber()) + "/v2/apps/myapp",
+                handler.getRequests().get(0).getUri().getPath());
+    }
+
     private void setupBasicProject(String payload, FreeStyleProject project) {
         // add builders
         addBuilders(payload, project);

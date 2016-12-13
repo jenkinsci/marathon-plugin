@@ -17,6 +17,11 @@ import java.io.IOException;
  */
 public abstract class MarathonBuilder {
     /**
+     * Local URL value that may be different than what was passed through config.
+     */
+    private String url;
+
+    /**
      * Create a new builder instance from config.
      *
      * @param config Application configuration
@@ -24,6 +29,14 @@ public abstract class MarathonBuilder {
      */
     public static MarathonBuilder getBuilder(final AppConfig config) {
         return new MarathonBuilderImpl(config);
+    }
+
+    public String getURL() {
+        return this.url;
+    }
+
+    public void setURL(final String url) {
+        this.url = url;
     }
 
     /**
