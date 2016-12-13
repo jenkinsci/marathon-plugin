@@ -44,10 +44,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     public MarathonBuilderImpl(final AppConfig config) {
         this.config = config;
         this.envVars = new EnvVars();
-    }
 
-    public String getUrl() {
-        return config.getUrl();
+        setURLFromConfig();
     }
 
     public List<MarathonUri> getUris() {
@@ -164,6 +162,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder build() {
+        setURLFromConfig();
+
         setId();
         setDockerImage();
         setUris();
@@ -222,7 +222,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      */
     private Marathon getMarathonClient(UsernamePasswordCredentials credentials) {
         return MarathonClient
-                .getInstanceWithBasicAuth(config.getUrl(), credentials.getUsername(), credentials.getPassword().getPlainText());
+                .getInstanceWithBasicAuth(getURL(), credentials.getUsername(), credentials.getPassword().getPlainText());
     }
 
     /**
@@ -249,7 +249,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
         if (StringUtils.isNotEmpty(token)) {
             return MarathonClient
-                    .getInstanceWithTokenAuth(config.getUrl(), token);
+                    .getInstanceWithTokenAuth(getURL(), token);
         }
 
         return getMarathonClient();
@@ -261,7 +261,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * @return Marathon client without authentication mechanisms
      */
     private Marathon getMarathonClient() {
-        return MarathonClient.getInstance(config.getUrl());
+        return MarathonClient.getInstance(getURL());
     }
 
     private JSONObject setId() {
@@ -269,6 +269,10 @@ public class MarathonBuilderImpl extends MarathonBuilder {
             json.put(MarathonBuilderUtils.JSON_ID_FIELD, Util.replaceMacro(config.getAppId(), envVars));
 
         return json;
+    }
+
+    private void setURLFromConfig() {
+        if (config.getUrl() != null) setURL(Util.replaceMacro(config.getUrl(), envVars));
     }
 
     private JSONObject setDockerImage() {
