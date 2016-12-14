@@ -9,6 +9,7 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.model.Item;
+import hudson.model.TaskListener;
 import hudson.util.ListBoxModel;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
@@ -30,6 +31,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       List<String>        uris;
     private       Map<String, String> labels;   // this does not work :(
     private       String              appid;
+    private       String              id;
     private       String              docker;
     private       String              filename;
     private       String              credentialsId;
@@ -44,7 +46,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
     @Override
     public String getAppId() {
-        return this.appid;
+        return this.id;
     }
 
     public String getUrl() {
@@ -106,10 +108,24 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         this.docker = docker;
     }
 
+    /**
+     * Get the application id for the "appid" field.
+     *
+     * @return application id
+     * @deprecated use {@link #getId()}
+     */
+    @Deprecated
     public String getAppid() {
         return appid;
     }
 
+    /**
+     * Set the application id for the "appid" field.
+     *
+     * @param appid application id
+     * @deprecated use {@link #setId(String)}
+     */
+    @Deprecated
     @DataBoundSetter
     public void setAppid(final String appid) {
         this.appid = appid;
@@ -125,13 +141,35 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
             this.filename = filename;
     }
 
+    /**
+     * Get the application id for the "id" field.
+     *
+     * @return application id
+     * @since 1.3.3
+     */
+    public String getId() {
+        return id;
+    }
+
+    /**
+     * Set the application id for the "id" field.
+     *
+     * @param id application id
+     * @since 1.3.3
+     */
+    @DataBoundSetter
+    public void setId(final String id) {
+        this.id = id;
+    }
+
     @Extension
     public static class DescriptorImpl extends AbstractStepDescriptorImpl {
+        @Inject
+        private MarathonRecorder.DescriptorImpl delegate;
+
         public DescriptorImpl() {
             super(MarathonStepExecution.class);
         }
-        @Inject
-        private MarathonRecorder.DescriptorImpl delegate;
 
         @Override
         public String getFunctionName() {
@@ -150,17 +188,25 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     public static class MarathonStepExecution extends AbstractSynchronousStepExecution<Void> {
+        /*
+         * Need the listener to append to console log.
+         */
         @StepContextParameter
-        private transient FilePath ws;
-
+        transient         TaskListener listener;
         @StepContextParameter
-        private transient EnvVars envVars;
-
+        private transient FilePath     ws;
+        @StepContextParameter
+        private transient EnvVars      envVars;
         @Inject
         private transient MarathonStep step;
 
         @Override
         protected Void run() throws Exception {
+            if (step.getAppid() != null && !step.getAppid().equals("")) {
+                listener.getLogger().println("[Marathon] DEPRECATION WARNING: This configuration is using \"appid\" instead of \"id\". Please update this configuration.");
+                step.setId(step.getAppid());
+            }
+
             MarathonBuilder
                     .getBuilder(step)
                     .setEnvVars(envVars)
