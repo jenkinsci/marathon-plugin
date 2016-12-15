@@ -15,7 +15,6 @@ import hudson.model.*;
 import hudson.tasks.Shell;
 import hudson.util.Secret;
 import net.sf.json.JSONObject;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
@@ -76,15 +75,10 @@ public class MarathonRecorderTest {
         project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
 
         // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-
-        // get console log
-        final String s = FileUtils.readFileToString(build.getLogFile());
-
+        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
         // assert things
-        assertEquals("Build should fail", Result.FAILURE, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
-        assertTrue(s.contains("marathon.json"));
+        j.assertLogContains("[Marathon]", build);
+        j.assertLogContains("marathon.json", build);
         assertEquals("No web requests were made", 0, handler.getRequestCount());
     }
 
@@ -105,15 +99,9 @@ public class MarathonRecorderTest {
         setupBasicProject(payload, project);
 
         // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-
-        // get console log
-        final String s = FileUtils.readFileToString(build.getLogFile());
-
+        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
         // assert things
-        assertEquals("Build should fail", Result.SUCCESS, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
-        assertTrue(s.contains("application updated"));
+        j.assertLogContains("application updated", build);
         assertEquals("Only 1 web request", 1, handler.getRequestCount());
     }
 
@@ -186,10 +174,7 @@ public class MarathonRecorderTest {
         setupBasicProject(payload, project);
 
         // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-
-        // assert things
-        assertEquals("Build should fail", Result.SUCCESS, build.getResult());
+        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
 
         // get the request body of the first request sent to the handler
@@ -212,23 +197,15 @@ public class MarathonRecorderTest {
     public void testRecorderMaxRetries() throws Exception {
         final String           payload = "{\"id\":\"myapp\"}";
         final FreeStyleProject project = j.createFreeStyleProject();
-
         // add builders
         setupBasicProject(payload, project);
-
         // return 409 to trigger retry logic
         handler.setResponseCode(409);
-
         // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-
-        // get console log
-        final String s = FileUtils.readFileToString(build.getLogFile());
-
+        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
         // assert things
-        assertEquals("Build should fail", Result.FAILURE, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
-        assertTrue(s.contains("max retries"));
+        j.assertLogContains("[Marathon]", build);
+        j.assertLogContains("max retries", build);
         assertEquals("Should be 3 retries", 3, handler.getRequestCount());
     }
 
@@ -244,21 +221,12 @@ public class MarathonRecorderTest {
         final String           payload = "{\"id\":\"myapp\"}";
         final FreeStyleProject project = j.createFreeStyleProject();
         setupBasicProject(payload, project);
-
-
         // return a 404, which will fail the build
         handler.setResponseCode(404);
-
         // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-
-        // get console log
-        final String s = FileUtils.readFileToString(build.getLogFile());
-
+        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
         // assert things
-        assertEquals("Build should fail", Result.FAILURE, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
-        assertTrue(s.contains("Failed to update"));
+        j.assertLogContains("Failed to update", build);
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
     }
 
@@ -281,16 +249,10 @@ public class MarathonRecorderTest {
         project.getPublishersList().add(new MarathonRecorder(getHttpAddresss() + "/${BUILD_NUMBER}"));
 
         // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
+        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
+        j.assertLogContains("[Marathon]", build);
 
-        // get console log
-        final String s = FileUtils.readFileToString(build.getLogFile());
-
-        // assert things
-        assertEquals("Build should pass", Result.SUCCESS, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
-
         assertEquals("App URL should have build number",
                 "/" + String.valueOf(build.getNumber()) + "/v2/apps/myapp",
                 handler.getRequests().get(0).getUri().getPath());
@@ -299,7 +261,6 @@ public class MarathonRecorderTest {
     private void setupBasicProject(String payload, FreeStyleProject project) {
         // add builders
         addBuilders(payload, project);
-
         // add post-builder
         project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
     }
@@ -323,15 +284,10 @@ public class MarathonRecorderTest {
         handler.setResponseCode(503);
 
         // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-
-        // get console log
-        final String s = FileUtils.readFileToString(build.getLogFile());
+        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
 
         // assert things
-        assertEquals("Build should fail", Result.FAILURE, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
-        assertTrue(s.contains("Failed to update"));
+        j.assertLogContains("Failed to update", build);
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
     }
 
@@ -354,17 +310,14 @@ public class MarathonRecorderTest {
 
         // add builders
         addBuilders(payload, project);
-
         // add post-builder
         addPostBuilders(project, "basictoken");
 
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-        final String         s     = FileUtils.readFileToString(build.getLogFile());
+        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
+        j.assertLogContains("[Marathon]", build);
 
-        assertEquals("Build failed", Result.SUCCESS, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
+        // handler assertions
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
-
         final String authorizationText = handler.getRequests().get(0).getHeaders().getFirst("Authorization");
         assertEquals("Token does not match", "token=" + tokenValue, authorizationText);
     }
@@ -398,13 +351,11 @@ public class MarathonRecorderTest {
         // add post-builder
         addPostBuilders(project, "jsontoken");
 
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-        final String         s     = FileUtils.readFileToString(build.getLogFile());
+        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
+        j.assertLogContains("[Marathon]", build);
 
-        assertEquals("Build failed", Result.SUCCESS, build.getResult());
-        assertTrue(s.contains("[Marathon]"));
+        // handler assertions
         assertEquals("Only 1 request should be made", 1, handler.getRequestCount());
-
         final String authorizationText = handler.getRequests().get(0).getHeaders().getFirst("Authorization");
         assertEquals("Token does not match", "token=" + tokenValue, authorizationText);
     }
@@ -434,12 +385,9 @@ public class MarathonRecorderTest {
         // add post-builder
         addPostBuilders(project, "invalidtoken");
 
-        final FreeStyleBuild build = project.scheduleBuild2(0).get();
-        final String         s     = FileUtils.readFileToString(build.getLogFile());
-
-        assertEquals("Build succeeded", Result.FAILURE, build.getResult());
-        assertTrue(s.contains("[Marathon] Authentication to Marathon instance failed:"));
-        assertTrue(s.contains("[Marathon] Invalid DC/OS service account JSON"));
+        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
+        j.assertLogContains("[Marathon] Authentication to Marathon instance failed:", build);
+        j.assertLogContains("[Marathon] Invalid DC/OS service account JSON", build);
         assertEquals("Only 1 request should have been made.", 1, handler.getRequestCount());
     }
 
