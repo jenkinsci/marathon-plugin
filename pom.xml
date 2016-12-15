@@ -6,9 +6,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <!-- Baseline Jenkins version you use to build and test the plugin. Users must have this version or newer to run. -->
-        <version>1.642.1</version>
-        <relativePath/>
+        <version>2.19</version>
     </parent>
     <groupId>com.mesosphere.velocity</groupId>
     <artifactId>marathon</artifactId>
@@ -57,6 +55,8 @@
         </developer>
     </developers>
     <properties>
+        <!-- Baseline Jenkins version you use to build and test the plugin. Users must have this version or newer to run. -->
+        <jenkins.version>1.642.1</jenkins.version>
         <auth0-jwt.version>2.2.1</auth0-jwt.version>
         <credentials.version>1.22</credentials.version>
         <http.version>4.5.1</http.version>
