@@ -15,6 +15,7 @@ import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -80,12 +81,15 @@ public abstract class TokenAuthProvider {
     boolean doTokenUpdate(final String tokenId, final Credentials creds) throws IOException {
         final SystemCredentialsProvider.ProviderImpl systemProvider = ExtensionList.lookup(CredentialsProvider.class)
                 .get(SystemCredentialsProvider.ProviderImpl.class);
+        if (systemProvider == null) return false;
+
         final CredentialsStore credentialsStore = systemProvider.getStore(Jenkins.getInstance());
+        if (credentialsStore == null) return false;
 
         /*
             Walk through all domains and credentials for each domain to find a credential with the matching id.
          */
-        for (Domain d : credentialsStore.getDomains()) {
+        for (final Domain d : credentialsStore.getDomains()) {
             for (Credentials c : credentialsStore.getCredentials(d)) {
                 if (!(c instanceof StringCredentials)) continue;
 
