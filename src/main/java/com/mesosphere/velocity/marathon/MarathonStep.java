@@ -188,9 +188,10 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     public static class MarathonStepExecution extends AbstractSynchronousStepExecution<Void> {
+        private static final long serialVersionUID = 6213649171165833159L;
         /*
-         * Need the listener to append to console log.
-         */
+                 * Need the listener to append to console log.
+                 */
         @StepContextParameter
         transient         TaskListener listener;
         @StepContextParameter
