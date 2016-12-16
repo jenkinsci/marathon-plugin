@@ -5,6 +5,8 @@ import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
 
+import java.util.Objects;
+
 public class MarathonLabel extends AbstractDescribableImpl<MarathonLabel> {
     private final String name;
     private final String value;
@@ -24,9 +26,18 @@ public class MarathonLabel extends AbstractDescribableImpl<MarathonLabel> {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(name, value);
+    }
+
+    @Override
     public boolean equals(Object obj) {
-        return ((obj instanceof MarathonLabel)
-                && ((MarathonLabel) obj).getName().equals(this.getName()));
+        if (obj == this) return true;
+        if (!(obj instanceof MarathonLabel)) return false;
+
+        final MarathonLabel label = (MarathonLabel) obj;
+        return label.getName().equals(this.getName()) &&
+                label.getValue().equals(this.getValue());
     }
 
     @Extension

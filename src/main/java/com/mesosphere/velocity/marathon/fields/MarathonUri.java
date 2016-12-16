@@ -5,6 +5,8 @@ import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
 
+import java.util.Objects;
+
 public class MarathonUri extends AbstractDescribableImpl<MarathonUri> {
     @Extension
     public final static DescriptorImpl DESCRIPTOR = new DescriptorImpl();
@@ -20,9 +22,17 @@ public class MarathonUri extends AbstractDescribableImpl<MarathonUri> {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(uri);
+    }
+
+    @Override
     public boolean equals(Object obj) {
-        return ((obj instanceof MarathonUri)
-                && ((MarathonUri) obj).getUri().equals(this.getUri()));
+        if (obj == this) return true;
+        if (!(obj instanceof MarathonUri)) return false;
+
+        final MarathonUri uri = (MarathonUri) obj;
+        return uri.getUri().equals(this.getUri());
     }
 
     public static class DescriptorImpl extends Descriptor<MarathonUri> {
