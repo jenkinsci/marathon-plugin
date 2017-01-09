@@ -5,7 +5,7 @@ import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import hudson.Extension;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
-import hudson.model.Hudson;
+import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -100,7 +100,11 @@ public class DeploymentConfig implements Describable<DeploymentConfig> {
 
     @Override
     public Descriptor<DeploymentConfig> getDescriptor() {
-        return Hudson.getInstance().getDescriptorOrDie(getClass());
+        Jenkins jenkins = Jenkins.getInstance();
+        if (jenkins == null) {
+            throw new AssertionError("No Jenkins instance available");
+        }
+        return jenkins.getDescriptorOrDie(this.getClass());
     }
 
     @Extension
