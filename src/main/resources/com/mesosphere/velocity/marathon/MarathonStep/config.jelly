@@ -1,21 +1,25 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
-    <f:entry field="url" title="${%Marathon URL}">
-        <f:textbox/>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:st="jelly:stapler">
+    <f:entry title="${%Marathon URL}" field="url">
+        <f:textbox />
     </f:entry>
-    <f:entry field="credentialsId" title="${%Authentication Credentials}">
+
+    <f:entry field="credentialsId" title="${%Credentials}">
         <c:select/>
     </f:entry>
-    <f:entry field="forceUpdate" title="${%Force Update}">
-        <f:checkbox name="forceUpdate"/>
-    </f:entry>
-    <f:entry field="appId" title="${%Application Id}">
-        <f:textbox/>
-    </f:entry>
-    <f:entry field="docker" title="${%Docker Image}">
-        <f:textbox/>
-    </f:entry>
-    <f:entry field="filename" title="${%Application Definition}">
-        <f:textbox/>
+    <f:entry title="${%Deployments}" field="configs">
+        <f:repeatable add="Add Deployment" field="configs" noAddButton="false" minimum="1">
+            <j:set var="instance" value="${instance.descriptor != descriptor ? null : instance}"/>
+            <j:set var="configFor" value="publisher" />
+            <table width="100%">
+                <st:include class="${descriptor.clazz}" page="config.jelly" />
+
+                <f:entry>
+                    <div align="right">
+                        <input type="button" value="${%Delete}" class="repeatable-delete danger show-if-not-only" style="margin-left: 1em;" />
+                    </div>
+                </f:entry>
+            </table>
+        </f:repeatable>
     </f:entry>
 </j:jelly>

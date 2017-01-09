@@ -29,14 +29,9 @@ public class DeploymentConfig implements Describable<DeploymentConfig> {
     private String filename;
 
     @DataBoundConstructor
-    public DeploymentConfig(boolean forceUpdate, List<MarathonUri> uris, List<MarathonLabel> labels,
-                            String appId, String docker, String filename) {
-        this.forceUpdate = forceUpdate;
-        this.uris = uris == null ? new ArrayList<MarathonUri>() : uris;
-        this.labels = labels == null ? new ArrayList<MarathonLabel>() : labels;
-        this.appId = appId;
-        this.docker = docker;
-        this.filename = filename;
+    public DeploymentConfig() {
+        this.uris = new ArrayList<>();
+        this.labels = new ArrayList<>();
     }
 
     public String getAppId() {
