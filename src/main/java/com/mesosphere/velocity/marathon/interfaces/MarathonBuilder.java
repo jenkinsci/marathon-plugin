@@ -1,5 +1,6 @@
 package com.mesosphere.velocity.marathon.interfaces;
 
+import com.mesosphere.velocity.marathon.DeploymentConfig;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
@@ -27,8 +28,8 @@ public abstract class MarathonBuilder {
      * @param config Application configuration
      * @return A new builder
      */
-    public static MarathonBuilder getBuilder(final AppConfig config) {
-        return new MarathonBuilderImpl(config);
+    public static MarathonBuilder getBuilder(final String url, final String credentialsId, final DeploymentConfig config) {
+        return new MarathonBuilderImpl(url, credentialsId, config);
     }
 
     public String getURL() {
@@ -98,7 +99,7 @@ public abstract class MarathonBuilder {
      * @param config application configuration
      * @return This builder
      */
-    public abstract MarathonBuilder setConfig(final AppConfig config);
+    public abstract MarathonBuilder setConfig(final DeploymentConfig config);
 
     /**
      * Set the Jenkins workspace to ws.

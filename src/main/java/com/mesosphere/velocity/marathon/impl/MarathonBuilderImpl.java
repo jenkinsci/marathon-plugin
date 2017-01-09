@@ -2,13 +2,13 @@ package com.mesosphere.velocity.marathon.impl;
 
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
+import com.mesosphere.velocity.marathon.DeploymentConfig;
 import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
-import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
@@ -31,17 +31,21 @@ import java.util.logging.Logger;
 
 public class MarathonBuilderImpl extends MarathonBuilder {
     private static final Logger LOGGER = Logger.getLogger(MarathonBuilderImpl.class.getName());
-    private AppConfig  config;
+    private DeploymentConfig config;
+    private String url;
+    private String credentialsId;
     private JSONObject json;
     private App        app;
     private EnvVars    envVars;
     private FilePath   workspace;
 
     public MarathonBuilderImpl() {
-        this(null);
+        this(null, null, null);
     }
 
-    public MarathonBuilderImpl(final AppConfig config) {
+    public MarathonBuilderImpl(final String url, final String credentialsId, final DeploymentConfig config) {
+        this.url = url;
+        this.credentialsId = credentialsId;
         this.config = config;
         this.envVars = new EnvVars();
 
@@ -76,7 +80,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     public MarathonBuilder update() throws MarathonException, AuthenticationException {
         if (app != null) {
             try {
-                doUpdate(config.getCredentialsId());
+                doUpdate(credentialsId);
             } catch (MarathonException marathonException) {
                 LOGGER.warning("Marathon Exception: " + marathonException.getMessage());
 
@@ -84,7 +88,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 if (marathonException.getStatus() != 401) throw marathonException;
                 LOGGER.fine("Received 401 when updating Marathon application.");
 
-                final StringCredentials tokenCredentials = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
+                final StringCredentials tokenCredentials = MarathonBuilderUtils.getTokenCredentials(credentialsId);
                 if (tokenCredentials == null) {
                     LOGGER.warning("Unauthorized (401) and service account credentials are not filled in.");
                     throw marathonException;
@@ -102,7 +106,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 // use the new token if it was updated
                 if (updatedToken) {
                     LOGGER.info("Token was successfully updated.");
-                    doUpdate(config.getCredentialsId());
+                    doUpdate(credentialsId);
                 }
             }
         }
@@ -149,7 +153,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder setConfig(final AppConfig config) {
+    public MarathonBuilder setConfig(final DeploymentConfig config) {
         this.config = config;
         return this;
     }
@@ -272,7 +276,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     private void setURLFromConfig() {
-        if (config.getUrl() != null) setURL(Util.replaceMacro(config.getUrl(), envVars));
+        if (this.url != null) setURL(Util.replaceMacro(this.url, envVars));
     }
 
     private JSONObject setDockerImage() {

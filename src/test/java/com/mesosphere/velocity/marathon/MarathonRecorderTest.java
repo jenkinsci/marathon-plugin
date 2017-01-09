@@ -11,7 +11,11 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import hudson.ExtensionList;
 import hudson.Launcher;
-import hudson.model.*;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
+import hudson.model.FreeStyleBuild;
+import hudson.model.FreeStyleProject;
+import hudson.model.Result;
 import hudson.tasks.Shell;
 import hudson.util.Secret;
 import net.sf.json.JSONObject;
@@ -72,7 +76,7 @@ public class MarathonRecorderTest {
         project.getBuildersList().add(new Shell("echo hello"));
 
         // add recorder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss(), new DeploymentConfig()));
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
@@ -246,7 +250,7 @@ public class MarathonRecorderTest {
         // add builders
         addBuilders(payload, project);
         // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss() + "/${BUILD_NUMBER}"));
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss() + "/${BUILD_NUMBER}", new DeploymentConfig()));
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
@@ -262,7 +266,7 @@ public class MarathonRecorderTest {
         // add builders
         addBuilders(payload, project);
         // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss(), new DeploymentConfig()));
     }
 
     /**
@@ -397,7 +401,7 @@ public class MarathonRecorderTest {
     }
 
     private void addPostBuilders(FreeStyleProject project, String jsontoken) {
-        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss());
+        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss(), new DeploymentConfig());
         marathonRecorder.setCredentialsId(jsontoken);
         project.getPublishersList().add(marathonRecorder);
     }
