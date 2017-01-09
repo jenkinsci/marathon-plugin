@@ -1,9 +1,9 @@
 package com.mesosphere.velocity.marathon.impl;
 
+import com.mesosphere.velocity.marathon.DeploymentConfig;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
-import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import hudson.FilePath;
 import net.sf.json.JSONArray;
@@ -32,7 +32,7 @@ public class MarathonBuilderImplTest {
     @Rule
     public final ExpectedException exception = ExpectedException.none();
     @Mock
-    private AppConfig       appConfig;
+    private DeploymentConfig appConfig;
     private MarathonBuilder builder;
 
     @Before
@@ -46,7 +46,7 @@ public class MarathonBuilderImplTest {
         final String     val  = "testvalue";
         final JSONObject json = new JSONObject();
 
-        builder = new MarathonBuilderImpl(appConfig);
+        builder = new MarathonBuilderImpl(null, null, appConfig);
         assertNull("JSON is null on initial creation.", builder.getJson());
 
         builder.setJson(json);
@@ -67,7 +67,7 @@ public class MarathonBuilderImplTest {
         when(fileMock.exists()).thenReturn(false);
 
         // create builder
-        builder = new MarathonBuilderImpl(appConfig);
+        builder = new MarathonBuilderImpl(null, null, appConfig);
 
         // setup FileMissing exception
         exception.expect(MarathonFileMissingException.class);
@@ -84,7 +84,7 @@ public class MarathonBuilderImplTest {
         when(fileMock.isDirectory()).thenReturn(true);
 
         // create builder
-        builder = new MarathonBuilderImpl(appConfig);
+        builder = new MarathonBuilderImpl(null, null, appConfig);
 
         // setup FileInvalid exception
         exception.expect(MarathonFileInvalidException.class);
@@ -105,7 +105,7 @@ public class MarathonBuilderImplTest {
         // the magic...
         when(fileMock.readToString()).thenReturn("{}");
 
-        builder = new MarathonBuilderImpl(appConfig);
+        builder = new MarathonBuilderImpl(null, null, appConfig);
         builder.setWorkspace(wsMock).read(filename);
         assertEquals("Empty JSON Object was read in", expectedJson, builder.getJson());
 
@@ -122,7 +122,7 @@ public class MarathonBuilderImplTest {
         final String     jsonString = "{\"id\": \"testid\"}";
         final JSONObject json       = JSONObject.fromObject(jsonString);
 
-        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+        builder = new MarathonBuilderImpl(null, null, appConfig).setJson(json).build();
         assertNull(builder.getJson().get("uris"));
 
         when(appConfig.getUris()).thenReturn(Collections.singletonList(
@@ -138,7 +138,7 @@ public class MarathonBuilderImplTest {
         final String     jsonString = "{\"id\": \"testid\", \"uris\": [\"http://example.com/artifact\"]}";
         final JSONObject json       = JSONObject.fromObject(jsonString);
 
-        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+        builder = new MarathonBuilderImpl(null, null, appConfig).setJson(json).build();
         assertEquals(1, builder.getJson().getJSONArray("uris").size());
 
         final String item = builder.getJson().getJSONArray("uris").getString(0);
@@ -156,7 +156,7 @@ public class MarathonBuilderImplTest {
 
         when(appConfig.getUris()).thenReturn(Collections.singletonList(new MarathonUri("http://example.com/valid_artifact")));
 
-        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+        builder = new MarathonBuilderImpl(null, null, appConfig).setJson(json).build();
         final JSONArray uris = builder.getJson().getJSONArray("uris");
         assertEquals(1, uris.size());
         final String item = uris.getString(0);

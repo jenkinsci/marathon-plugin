@@ -9,7 +9,7 @@
     <f:entry field="forceUpdate" title="${%Force Update}">
         <f:checkbox name="forceUpdate"/>
     </f:entry>
-    <f:entry field="appid" title="${%Application Id}">
+    <f:entry field="appId" title="${%Application Id}">
         <f:textbox/>
     </f:entry>
     <f:entry field="docker" title="${%Docker Image}">

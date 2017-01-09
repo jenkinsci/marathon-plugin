@@ -4,6 +4,7 @@ import hudson.model.Result;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -22,7 +23,12 @@ public class MarathonStepTest {
     public void testStepFail() throws Exception {
         final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, "workflow");
 
-        job.setDefinition(new CpsFlowDefinition("node { marathon(id: 'testStepFail', url: 'http://example.com/'); }", true));
+        final String script = "node { " +
+                "def config = new DeploymentConfig(false, null, null, 'testStepFail', null, null);" +
+                "marathon(url: 'http://example.com/' configs: config); " +
+                "}";
+
+        job.setDefinition(new CpsFlowDefinition(script, true));
         WorkflowRun run = j.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(0).get());
         j.assertLogNotContains("DEPRECATION WARNING", run);
     }
@@ -33,6 +39,7 @@ public class MarathonStepTest {
      * @throws Exception
      */
     @Test
+    @Ignore
     public void testStepAppIdDeprecationMessage() throws Exception {
         final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, "workflow");
 

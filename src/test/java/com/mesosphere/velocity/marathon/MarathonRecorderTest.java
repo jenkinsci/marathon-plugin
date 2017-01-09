@@ -5,6 +5,8 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -70,9 +72,10 @@ public class MarathonRecorderTest {
     public void testRecorderNoFile() throws Exception {
         final FreeStyleProject project = j.createFreeStyleProject();
         project.getBuildersList().add(new Shell("echo hello"));
+        DeploymentConfig deploymentConfig = new DeploymentConfig(false, new ArrayList<MarathonUri>(), new ArrayList<MarathonLabel>(), null, null, null);
 
         // add recorder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss(), deploymentConfig));
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
@@ -242,11 +245,12 @@ public class MarathonRecorderTest {
         final FreeStyleProject project     = j.createFreeStyleProject();
         final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
         handler.setResponseBody(responseStr);
+        DeploymentConfig deploymentConfig = new DeploymentConfig(false, new ArrayList<MarathonUri>(), new ArrayList<MarathonLabel>(), null, null, null);
 
         // add builders
         addBuilders(payload, project);
         // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss() + "/${BUILD_NUMBER}"));
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss() + "/${BUILD_NUMBER}", deploymentConfig));
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
@@ -261,8 +265,9 @@ public class MarathonRecorderTest {
     private void setupBasicProject(String payload, FreeStyleProject project) {
         // add builders
         addBuilders(payload, project);
+        DeploymentConfig deploymentConfig = new DeploymentConfig(false, new ArrayList<MarathonUri>(), new ArrayList<MarathonLabel>(), null, null, null);
         // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss(), deploymentConfig));
     }
 
     /**
@@ -397,7 +402,8 @@ public class MarathonRecorderTest {
     }
 
     private void addPostBuilders(FreeStyleProject project, String jsontoken) {
-        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss());
+        DeploymentConfig deploymentConfig = new DeploymentConfig(false, new ArrayList<MarathonUri>(), new ArrayList<MarathonLabel>(), null, null, null);
+        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss(), deploymentConfig);
         marathonRecorder.setCredentialsId(jsontoken);
         project.getPublishersList().add(marathonRecorder);
     }

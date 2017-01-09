@@ -9,15 +9,17 @@ import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
-import com.mesosphere.velocity.marathon.fields.MarathonLabel;
-import com.mesosphere.velocity.marathon.fields.MarathonUri;
-import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Launcher;
-import hudson.model.*;
+import hudson.Util;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.model.BuildListener;
+import hudson.model.Item;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
@@ -31,54 +33,40 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 
-public class MarathonRecorder extends Recorder implements AppConfig {
+public class MarathonRecorder extends Recorder {
     @Extension
     public static final  DescriptorImpl DESCRIPTOR = new DescriptorImpl();
     private static final Logger         LOGGER     = Logger.getLogger(MarathonRecorder.class.getName());
+    private final ArrayList<DeploymentConfig> configs;
     private final String              url;
-    private       List<MarathonUri>   uris;
-    private       List<MarathonLabel> labels;
-    private       String              appid;
-    private       String              docker;
-    private       String              filename;
     private       String              credentialsId;
-    private       boolean             forceUpdate;
 
     @DataBoundConstructor
-    public MarathonRecorder(final String url) {
+    public MarathonRecorder(final String url, final List<DeploymentConfig> configs) {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
-
-        this.uris = new ArrayList<MarathonUri>(5);
-        this.labels = new ArrayList<MarathonLabel>(5);
+        this.configs = new ArrayList<>(Util.fixNull(configs));
     }
 
-    public String getAppid() {
-        return appid;
+    public MarathonRecorder(final String url, DeploymentConfig... configs) {
+        this(url, Arrays.asList(configs));
     }
 
-    @DataBoundSetter
-    public void setAppid(@Nonnull final String appid) {
-        this.appid = appid;
+    public String getUrl() {
+        return url;
     }
 
-    public String getFilename() {
-        return filename;
-    }
-
-    @DataBoundSetter
-    public void setFilename(@Nonnull final String filename) {
-        if (filename.trim().length() > 0)
-            this.filename = filename;
+    public List<DeploymentConfig> getConfigs() {
+        return configs;
     }
 
     @Override
@@ -117,78 +105,61 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         envVars.overrideAll(build.getBuildVariables());
 
         if (buildSucceed) {
-            try {
-                final MarathonBuilder builder = MarathonBuilder.getBuilder(this)
-                        .setEnvVars(envVars).setWorkspace(build.getWorkspace())
-                        .read(this.filename)
-                        .build().toFile();
+            for (DeploymentConfig config : configs) {
+                try {
+                    final MarathonBuilder builder = MarathonBuilder.getBuilder(this.url, this.credentialsId, config)
+                            .setEnvVars(envVars).setWorkspace(build.getWorkspace())
+                            .read(config.getFilename())
+                            .build().toFile();
 
-                // update & possible retry
-                boolean retry      = true;
-                int     retryCount = 0;
-                while (retry && retryCount < 3) {
-                    try {
-                        builder.update();
-                        retry = false;
-                        log(logger, "Marathon application updated.");
-                    } catch (MarathonException e) {
-                        // 409 is app already deployed and should trigger retry
-                        // 4xx and 5xx errors are build failures
-                        if (e.getStatus() != 409
-                                && (e.getStatus() >= 400 && e.getStatus() < 600)) {
-                            build.setResult(Result.FAILURE);
-                            log(logger, "Failed to update Marathon application:");
-                            log(logger, e.getMessage());
-                            LOGGER.warning(e.getMessage());
+                    // update & possible retry
+                    boolean retry = true;
+                    int retryCount = 0;
+                    while (retry && retryCount < 3) {
+                        try {
+                            builder.update();
                             retry = false;
-                        } else {
-                            // retry.
-                            retryCount++;
-                            Thread.sleep(5000L);    // 5 seconds
+                            log(logger, "Marathon application updated.");
+                        } catch (MarathonException e) {
+                            // 409 is app already deployed and should trigger retry
+                            // 4xx and 5xx errors are build failures
+                            if (e.getStatus() != 409
+                                    && (e.getStatus() >= 400 && e.getStatus() < 600)) {
+                                build.setResult(Result.FAILURE);
+                                log(logger, "Failed to update Marathon application:");
+                                log(logger, e.getMessage());
+                                LOGGER.warning(e.getMessage());
+                                retry = false;
+                            } else {
+                                // retry.
+                                retryCount++;
+                                Thread.sleep(5000L);    // 5 seconds
+                            }
                         }
                     }
-                }
 
-                if (retry) {
+                    if (retry) {
+                        build.setResult(Result.FAILURE);
+                        log(logger, "Reached max retries updating Marathon application.");
+                    }
+                } catch (MarathonFileMissingException e) {
+                    // "marathon.json" or whatever does not exist.
                     build.setResult(Result.FAILURE);
-                    log(logger, "Reached max retries updating Marathon application.");
+                    log(logger, "Application Definition not found:");
+                    log(logger, e.getMessage());
+                } catch (MarathonFileInvalidException e) {
+                    // file is a directory or something.
+                    build.setResult(Result.FAILURE);
+                    log(logger, "Application Definition is not a file:");
+                    log(logger, e.getMessage());
+                } catch (AuthenticationException e) {
+                    build.setResult(Result.FAILURE);
+                    log(logger, "Authentication to Marathon instance failed:");
+                    log(logger, e.getMessage());
                 }
-            } catch (MarathonFileMissingException e) {
-                // "marathon.json" or whatever does not exist.
-                build.setResult(Result.FAILURE);
-                log(logger, "Application Definition not found:");
-                log(logger, e.getMessage());
-            } catch (MarathonFileInvalidException e) {
-                // file is a directory or something.
-                build.setResult(Result.FAILURE);
-                log(logger, "Application Definition is not a file:");
-                log(logger, e.getMessage());
-            } catch (AuthenticationException e) {
-                build.setResult(Result.FAILURE);
-                log(logger, "Authentication to Marathon instance failed:");
-                log(logger, e.getMessage());
             }
-
         }
         return build.getResult() == Result.SUCCESS;
-    }
-
-    @Override
-    public String getAppId() {
-        return this.appid;
-    }
-
-    public String getUrl() {
-        return url;
-    }
-
-    @Override
-    public boolean getForceUpdate() {
-        return forceUpdate;
-    }
-
-    public String getDocker() {
-        return docker;
     }
 
     public String getCredentialsId() {
@@ -198,43 +169,6 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setCredentialsId(final String credentialsId) {
         this.credentialsId = credentialsId;
-    }
-
-    public List<MarathonUri> getUris() {
-        return uris;
-    }
-
-    @DataBoundSetter
-    public void setUris(final List<MarathonUri> uris) {
-        this.uris = uris;
-    }
-
-    public List<MarathonLabel> getLabels() {
-        return labels;
-    }
-
-    @DataBoundSetter
-    public void setLabels(final List<MarathonLabel> labels) {
-        this.labels = labels;
-    }
-
-    @DataBoundSetter
-    public void setDocker(@Nonnull final String docker) {
-        this.docker = docker;
-    }
-
-    /**
-     * Used by jelly or stapler to determine checkbox state.
-     *
-     * @return True if Force Update is enabled; False otherwise.
-     */
-    public boolean isForceUpdate() {
-        return getForceUpdate();
-    }
-
-    @DataBoundSetter
-    public void setForceUpdate(final boolean forceUpdate) {
-        this.forceUpdate = forceUpdate;
     }
 
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
