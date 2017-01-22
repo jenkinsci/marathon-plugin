@@ -2,8 +2,6 @@ package com.mesosphere.velocity.marathon.impl;
 
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
-import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
-import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
@@ -62,52 +60,6 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     public String getDocker() {
         return config.getDocker();
-    }
-
-    /**
-     * Perform the actual update call to Marathon. If a 401 (Unauthenticated) response is received,
-     * this will try to retrieve a new token from DC/OS using JWT credentials.
-     *
-     * @return this Marathon builder
-     * @throws MarathonException       If Marathon does not return a 20x OK response
-     * @throws AuthenticationException If an authentication provider was used and encountered a problem.
-     */
-    @Override
-    public MarathonBuilder update() throws MarathonException, AuthenticationException {
-        if (app != null) {
-            try {
-                doUpdate(config.getCredentialsId());
-            } catch (MarathonException marathonException) {
-                LOGGER.warning("Marathon Exception: " + marathonException.getMessage());
-
-                // 401 results may be possible to resolve, others not so much
-                if (marathonException.getStatus() != 401) throw marathonException;
-                LOGGER.fine("Received 401 when updating Marathon application.");
-
-                final StringCredentials tokenCredentials = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
-                if (tokenCredentials == null) {
-                    LOGGER.warning("Unauthorized (401) and service account credentials are not filled in.");
-                    throw marathonException;
-                }
-
-                // check if service account credentials were configured
-                // try to determine correct provider and update token
-                // (there is only one provider thus far, so this is simple)
-                boolean                 updatedToken = false;
-                final TokenAuthProvider provider     = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, tokenCredentials);
-                if (provider != null) {
-                    updatedToken = provider.updateTokenCredentials(tokenCredentials);
-                }
-
-                // use the new token if it was updated
-                if (updatedToken) {
-                    LOGGER.info("Token was successfully updated.");
-                    doUpdate(config.getCredentialsId());
-                }
-            }
-        }
-
-        return this;
     }
 
     @Override
@@ -196,11 +148,11 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * @param credentialsId A string ID for a credential within Jenkin's Credential store
      * @throws MarathonException thrown if the Marathon service has an error
      */
-    private void doUpdate(final String credentialsId) throws MarathonException {
+    @Override
+    protected void doUpdate(final String credentialsId) throws MarathonException {
         final Credentials credentials = MarathonBuilderUtils.getJenkinsCredentials(credentialsId, Credentials.class);
 
         Marathon client;
-
         if (credentials instanceof UsernamePasswordCredentials) {
             client = getMarathonClient((UsernamePasswordCredentials) credentials);
         } else if (credentials instanceof StringCredentials) {

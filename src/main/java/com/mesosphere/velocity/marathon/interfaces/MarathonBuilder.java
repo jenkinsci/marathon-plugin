@@ -1,26 +1,36 @@
 package com.mesosphere.velocity.marathon.interfaces;
 
+import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
-import com.mesosphere.velocity.marathon.impl.SimpleMarathonBuilderImpl;
+import com.mesosphere.velocity.marathon.impl.MarathonBuilderApiImpl;
+import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.FilePath;
 import mesosphere.marathon.client.utils.MarathonException;
 import net.sf.json.JSONObject;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 /**
  * This builds {@see MarathonClient}s from Jenkins, file system, and JSON pieces.
  * This allows the construction of the final payload as well as sending it to the target Marathon instance.
  */
 public abstract class MarathonBuilder {
+    private static final Logger LOGGER = Logger.getLogger(MarathonBuilder.class.getName());
     /**
      * Local URL value that may be different than what was passed through config.
      */
     private String url;
+
+    /**
+     * Local Credentials ID
+     */
+    private String credentialsId;
 
     /**
      * Create a new builder instance from config.
@@ -33,7 +43,7 @@ public abstract class MarathonBuilder {
     }
 
     public static MarathonBuilder getBuilder(final String url, final String credentialId, final boolean forceUpdate) {
-        return new SimpleMarathonBuilderImpl(url, credentialId, forceUpdate);
+        return new MarathonBuilderApiImpl(url, credentialId, forceUpdate);
     }
 
     public String getURL() {
@@ -44,13 +54,66 @@ public abstract class MarathonBuilder {
         this.url = url;
     }
 
+    public String getCredentialsId() {
+        return credentialsId;
+    }
+
+    public void setCredentialsId(String credentialsId) {
+        this.credentialsId = credentialsId;
+    }
+
     /**
-     * Update the Marathon application.
+     * Perform the actual Update call to the DCOS server.
      *
-     * @return This builder
+     * @param credentialsId - Credentials ID
      * @throws MarathonException
+     * @throws AuthenticationException
      */
-    public abstract MarathonBuilder update() throws MarathonException, AuthenticationException;
+    protected abstract void doUpdate(String credentialsId) throws MarathonException, AuthenticationException;
+
+    /**
+     * Perform the actual update call to Marathon. If a 401 (Unauthenticated) response is received,
+     * this will try to retrieve a new token from DC/OS using JWT credentials.
+     *
+     * @return this Marathon builder
+     * @throws MarathonException       If Marathon does not return a 20x OK response
+     * @throws AuthenticationException If an authentication provider was used and encountered a problem.
+     */
+    public MarathonBuilder update() throws MarathonException, AuthenticationException {
+        try {
+            doUpdate(this.credentialsId);
+        } catch (MarathonException marathonException) {
+            LOGGER.warning("Marathon Exception: " + marathonException.getMessage());
+
+            // 401 results may be possible to resolve, others not so much
+            if (marathonException.getStatus() != 401) {
+                throw marathonException;
+            }
+            LOGGER.fine("Received 401 when updating Marathon application.");
+
+            final StringCredentials tokenCredentials = MarathonBuilderUtils.getTokenCredentials(this.credentialsId);
+            if (tokenCredentials == null) {
+                LOGGER.warning("Unauthorized (401) and service account credentials are not filled in.");
+                throw marathonException;
+            }
+
+            // check if service account credentials were configured
+            // try to determine correct provider and update token
+            // (there is only one provider thus far, so this is simple)
+            boolean updatedToken = false;
+            final TokenAuthProvider provider = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, tokenCredentials);
+            if (provider != null) {
+                updatedToken = provider.updateTokenCredentials(tokenCredentials);
+            }
+
+            // use the new token if it was updated
+            if (updatedToken) {
+                LOGGER.info("Token was successfully updated.");
+                doUpdate(this.credentialsId);
+            }
+        }
+        return this;
+    }
 
     /**
      * Read in filename as JSON.

@@ -49,7 +49,7 @@ import java.util.logging.Logger;
  * @author luketornquist
  * @since 1/21/17
  */
-public class SimpleMarathonRecorder extends Recorder {
+public class MultiMarathonRecorder extends Recorder {
     @Extension
     public static final  DescriptorImpl DESCRIPTOR = new DescriptorImpl();
     private static final Logger LOGGER     = Logger.getLogger(MarathonRecorder.class.getName());
@@ -59,7 +59,7 @@ public class SimpleMarathonRecorder extends Recorder {
     private       boolean                       forceUpdate;
 
     @DataBoundConstructor
-    public SimpleMarathonRecorder(final String url) {
+    public MultiMarathonRecorder(final String url) {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
     }
 
@@ -127,7 +127,7 @@ public class SimpleMarathonRecorder extends Recorder {
      * @param text   message to log
      */
     private void log(final PrintStream logger, final String text) {
-        logger.println("[Simple Marathon] " + text);
+        logger.println("[Multi-Marathon] " + text);
     }
 
     @Override
@@ -244,7 +244,7 @@ public class SimpleMarathonRecorder extends Recorder {
 
         @Override
         public String getDisplayName() {
-            return "Simple Marathon Deployment";
+            return "Multi-Marathon Deployment";
         }
 
         @Override
