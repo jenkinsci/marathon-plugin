@@ -4,6 +4,7 @@ import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
+import com.mesosphere.velocity.marathon.impl.SimpleMarathonBuilderImpl;
 import hudson.EnvVars;
 import hudson.FilePath;
 import mesosphere.marathon.client.utils.MarathonException;
@@ -29,6 +30,10 @@ public abstract class MarathonBuilder {
      */
     public static MarathonBuilder getBuilder(final AppConfig config) {
         return new MarathonBuilderImpl(config);
+    }
+
+    public static MarathonBuilder getBuilder(final String url, final String credentialId, final boolean forceUpdate) {
+        return new SimpleMarathonBuilderImpl(url, credentialId, forceUpdate);
     }
 
     public String getURL() {
