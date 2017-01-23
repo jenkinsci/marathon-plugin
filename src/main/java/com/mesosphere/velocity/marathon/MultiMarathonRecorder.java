@@ -9,7 +9,7 @@ import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
-import com.mesosphere.velocity.marathon.fields.SimpleDeployConfig;
+import com.mesosphere.velocity.marathon.fields.DeployConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
@@ -55,7 +55,7 @@ public class MultiMarathonRecorder extends Recorder {
     private static final Logger LOGGER     = Logger.getLogger(MarathonRecorder.class.getName());
     private final String                        url;
     private       String                        credentialsId;
-    private       ArrayList<SimpleDeployConfig> deployments;
+    private       ArrayList<DeployConfig> deployments;
     private       boolean                       forceUpdate;
 
     @DataBoundConstructor
@@ -67,12 +67,12 @@ public class MultiMarathonRecorder extends Recorder {
         return url;
     }
 
-    public List<SimpleDeployConfig> getDeployments() {
+    public List<DeployConfig> getDeployments() {
         return deployments;
     }
 
     @DataBoundSetter
-    public void setDeployments(@Nonnull final List<SimpleDeployConfig> deployments) {
+    public void setDeployments(@Nonnull final List<DeployConfig> deployments) {
         this.deployments = new ArrayList<>(deployments);
     }
 
@@ -139,7 +139,7 @@ public class MultiMarathonRecorder extends Recorder {
         envVars.overrideAll(build.getBuildVariables());
 
         if (buildSucceed) {
-            for (SimpleDeployConfig deployConfig : this.deployments) {
+            for (DeployConfig deployConfig : this.deployments) {
                 try {
                     final MarathonBuilder builder = MarathonBuilder.getBuilder(this.url, this.credentialsId, this.forceUpdate)
                             .setEnvVars(envVars)

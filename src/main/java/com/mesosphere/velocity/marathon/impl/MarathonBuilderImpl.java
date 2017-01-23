@@ -229,6 +229,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     private JSONObject setDockerImage() {
         if (config.getDocker() != null && config.getDocker().trim().length() > 0) {
+            //LOGGER.info("Docker");
             // get container -> docker -> image
             if (!json.has(MarathonBuilderUtils.JSON_CONTAINER_FIELD)) {
                 json.element(MarathonBuilderUtils.JSON_CONTAINER_FIELD,

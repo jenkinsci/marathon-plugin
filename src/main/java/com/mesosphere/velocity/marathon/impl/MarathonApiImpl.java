@@ -2,7 +2,9 @@ package com.mesosphere.velocity.marathon.impl;
 
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
+import com.google.common.base.Optional;
 import com.mesosphere.velocity.marathon.interfaces.MarathonApi;
+import com.mesosphere.velocity.marathon.util.MarathonApiConstant;
 import hudson.remoting.Base64;
 import mesosphere.marathon.client.utils.MarathonException;
 import net.sf.json.JSONException;
@@ -24,7 +26,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 /**
@@ -37,7 +38,6 @@ public class MarathonApiImpl implements MarathonApi {
 
     private static final Logger LOGGER = Logger.getLogger(MarathonApiImpl.class.getName());
     private static final String UPDATE_APP_TEMPLATE = "%s/v2/apps/%s";
-    private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String JENKINS_TOKEN_KEY = "jenkins_token";
     private final String baseUrl;
     private final ContentType contentType;
@@ -45,16 +45,16 @@ public class MarathonApiImpl implements MarathonApi {
     private final HttpClientContext context;
     private Header authorizationHeader;
 
-    public MarathonApiImpl(String baseUrl) {
+    private MarathonApiImpl(String baseUrl) {
         this(baseUrl, ContentType.APPLICATION_JSON, HttpClientBuilder.create(), new HttpClientContext());
     }
 
-    public MarathonApiImpl(String baseUrl, Credentials credentials) {
+    MarathonApiImpl(String baseUrl, Credentials credentials) {
         this(baseUrl);
         setAuthorizationHeader(credentials);
     }
 
-    MarathonApiImpl(String baseUrl, ContentType contentType, HttpClientBuilder client, HttpClientContext context) {
+    private MarathonApiImpl(String baseUrl, ContentType contentType, HttpClientBuilder client, HttpClientContext context) {
         this.baseUrl = baseUrl;
         this.contentType = contentType;
         this.client = client;
@@ -69,6 +69,7 @@ public class MarathonApiImpl implements MarathonApi {
             url = String.format(UPDATE_APP_TEMPLATE, this.baseUrl, URLEncoder.encode(appId, "UTF-8"));
         } catch (UnsupportedEncodingException e) {
             // Fall back to no encoding
+            LOGGER.warning("UTF-8 unsupported encoding for URL Encoding, fallback to no URL Encoding");
             url = String.format(UPDATE_APP_TEMPLATE, this.baseUrl, appId);
         }
 
@@ -76,7 +77,7 @@ public class MarathonApiImpl implements MarathonApi {
         final HttpUriRequest request = RequestBuilder
                 .put(url)
                 .addHeader(this.authorizationHeader)
-                .addParameter("force", Boolean.toString(forceUpdate))
+                .addParameter(MarathonApiConstant.FORCE_UPDATE_QUERY_PARAM, Boolean.toString(forceUpdate))
                 .setEntity(stringPayload)
                 .build();
 
@@ -109,7 +110,7 @@ public class MarathonApiImpl implements MarathonApi {
             }
         }
         if (authorization != null) {
-            this.authorizationHeader = new BasicHeader(AUTHORIZATION_HEADER, authorization);
+            this.authorizationHeader = new BasicHeader(MarathonApiConstant.AUTHORIZATION_HEADER, authorization);
         }
     }
 
@@ -134,8 +135,8 @@ public class MarathonApiImpl implements MarathonApi {
             token = credentials.getSecret().getPlainText();
         }
         if (StringUtils.isNotEmpty(token)) {
-            return Optional.ofNullable(token);
+            return Optional.of(token);
         }
-        return Optional.empty();
+        return Optional.absent();
     }
 }
