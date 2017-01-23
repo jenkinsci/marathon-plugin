@@ -3,6 +3,10 @@ package com.mesosphere.velocity.marathon.impl;
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.google.common.base.Optional;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mesosphere.velocity.marathon.interfaces.MarathonApi;
 import com.mesosphere.velocity.marathon.util.MarathonApiConstant;
 import hudson.remoting.Base64;
@@ -13,6 +17,7 @@ import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -20,6 +25,7 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.util.EntityUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
@@ -81,17 +87,28 @@ public class MarathonApiImpl implements MarathonApi {
                 .setEntity(stringPayload)
                 .build();
 
+        CloseableHttpResponse httpResponse = null;
         try {
-            client.build().execute(request, context).close();
-            int statusCode = context.getResponse().getStatusLine().getStatusCode();
+            httpResponse = client.build().execute(request, context);
+            int statusCode = httpResponse.getStatusLine().getStatusCode();
             if (statusCode >= 400 && statusCode < 600) {
-                context.getResponse().getStatusLine().getReasonPhrase();
-                throw new MarathonException(statusCode, context.getResponse().getStatusLine().getReasonPhrase());
+                final String message = String.format("%s%n%s", httpResponse.getStatusLine().getReasonPhrase(),
+                                                     prettyPrintJson(EntityUtils.toString(httpResponse.getEntity())));
+                throw new MarathonException(statusCode, message);
             }
         } catch (IOException e) {
             final String errorMessage = "Failed to execute web request to login endpoint.\n" + e.getMessage();
             LOGGER.warning(errorMessage);
             throw new MarathonException(HttpStatus.SC_INTERNAL_SERVER_ERROR, errorMessage);
+        }
+        finally {
+            if (httpResponse != null) {
+                try {
+                    httpResponse.close();
+                }
+                catch (IOException e) {
+                }
+            }
         }
         return null;
     }
@@ -138,5 +155,13 @@ public class MarathonApiImpl implements MarathonApi {
             return Optional.of(token);
         }
         return Optional.absent();
+    }
+
+    private String prettyPrintJson(String jsonString) {
+        JsonParser parser = new JsonParser();
+        JsonObject json = parser.parse(jsonString).getAsJsonObject();
+
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        return gson.toJson(json);
     }
 }

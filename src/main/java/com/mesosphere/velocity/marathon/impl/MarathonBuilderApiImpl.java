@@ -3,6 +3,7 @@ package com.mesosphere.velocity.marathon.impl;
 import com.cloudbees.plugins.credentials.Credentials;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
+import com.mesosphere.velocity.marathon.fields.DeployConfig;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonApi;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
@@ -25,22 +26,16 @@ import java.util.logging.Logger;
  */
 public class MarathonBuilderApiImpl extends MarathonBuilder {
     private static final Logger LOGGER = Logger.getLogger(MarathonBuilderApiImpl.class.getName());
-
-    private boolean forceUpdate;
+    private DeployConfig deployConfig;
     private JSONObject json;
-    private EnvVars envVars;
     private FilePath workspace;
 
     public MarathonBuilderApiImpl() {
-        this(null, null, false);
+        this(new EnvVars(), null, null);
     }
 
-    public MarathonBuilderApiImpl(String url, String credentialId, boolean forceUpdate) {
-        this.envVars = new EnvVars();
-
-        setURLFromConfig(url);
-        setCredentialsId(credentialId);
-        this.forceUpdate = forceUpdate;
+    public MarathonBuilderApiImpl(final EnvVars envVars, final String url, String credentialId) {
+        super(envVars, url, credentialId);
     }
 
     @Override
@@ -77,16 +72,14 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder setEnvVars(final EnvVars vars) {
-        this.envVars = vars;
+    public MarathonBuilder setConfig(AppConfig config) {
+        LOGGER.warning("MarathonBuilderApiImpl does not currently support 'AppConfig'-based configuration");
         return this;
     }
 
     @Override
-    public MarathonBuilder setConfig(AppConfig config) {
-        setURLFromConfig(config.getUrl());
-        setCredentialsId(config.getCredentialsId());
-        this.forceUpdate = config.getForceUpdate();
+    public MarathonBuilder setConfig(final DeployConfig config) {
+        this.deployConfig = config;
         return this;
     }
 
@@ -98,13 +91,14 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder build() {
+        replaceValuesInJson();
         return this;
     }
 
     @Override
     public MarathonBuilder toFile(final String filename) throws InterruptedException, IOException, MarathonFileInvalidException {
         final String   realFilename     = filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON;
-        final FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, envVars));
+        final FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, getEnvVars()));
         if (renderedFilepath.exists() && renderedFilepath.isDirectory())
             throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory; not overwriting.");
 
@@ -130,12 +124,40 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
         final String appId = json.getString(MarathonBuilderUtils.JSON_ID_FIELD);
 
         MarathonApi marathonApi = new MarathonApiImpl(getURL(), credentials);
-        marathonApi.update(appId, this.json.toString(), this.forceUpdate);
+        marathonApi.update(appId, this.json.toString(), deployConfig.getForceUpdate());
     }
 
-    private void setURLFromConfig(final String url) {
-        if (url != null) {
-            setURL(Util.replaceMacro(url, envVars));
+    private void replaceValuesInJson() {
+        replaceAppId();
+        replaceDockerImage();
+    }
+
+    private void replaceAppId() {
+        if (this.json != null && StringUtils.isNotBlank(this.deployConfig.getAppId())) {
+            final String previousId = this.json.getString(MarathonBuilderUtils.JSON_ID_FIELD);
+            final String newId = Util.replaceMacro(deployConfig.getAppId(), getEnvVars());
+            log(String.format("Replacing Application ID: [%s] => [%s]", previousId, newId));
+            json.put(MarathonBuilderUtils.JSON_ID_FIELD, newId);
+        }
+    }
+
+    private void replaceDockerImage() {
+        if (this.json != null && StringUtils.isNotBlank(this.deployConfig.getDockerImage())) {
+            // Verify that container exists in the JSON
+            if (!this.json.has(MarathonBuilderUtils.JSON_CONTAINER_FIELD)) {
+                this.json.element(MarathonBuilderUtils.JSON_CONTAINER_FIELD, JSONObject.fromObject(MarathonBuilderUtils.JSON_EMPTY_CONTAINER));
+            }
+            final JSONObject container = this.json.getJSONObject(MarathonBuilderUtils.JSON_CONTAINER_FIELD);
+            // Verify that docker exists in the JSON (under container)
+            if (!container.has(MarathonBuilderUtils.JSON_DOCKER_FIELD)) {
+                container.element(MarathonBuilderUtils.JSON_DOCKER_FIELD, new JSONObject());
+            }
+            final JSONObject docker = container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD);
+
+            final String previousImage = docker.getString(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD);
+            final String newImage = Util.replaceMacro(deployConfig.getDockerImage(), getEnvVars());
+            log(String.format("Replacing Docker Image: [%s] => [%s]", previousImage, newImage));
+            docker.put(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD, newImage);
         }
     }
 }

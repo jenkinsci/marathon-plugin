@@ -209,8 +209,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
             }
 
             MarathonBuilder
-                    .getBuilder(step)
-                    .setEnvVars(envVars)
+                    .getBuilder(envVars, step)
                     .setWorkspace(ws)
                     .read(step.filename)
                     .build()

@@ -4,6 +4,7 @@ import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
+import com.mesosphere.velocity.marathon.fields.DeployConfig;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
@@ -29,21 +30,18 @@ import java.util.logging.Logger;
 
 public class MarathonBuilderImpl extends MarathonBuilder {
     private static final Logger LOGGER = Logger.getLogger(MarathonBuilderImpl.class.getName());
-    private AppConfig  config;
-    private JSONObject json;
-    private App        app;
-    private EnvVars    envVars;
-    private FilePath   workspace;
+    private AppConfig       config;
+    private JSONObject      json;
+    private App             app;
+    private FilePath        workspace;
 
     public MarathonBuilderImpl() {
-        this(null);
+        this(new EnvVars(), null);
     }
 
-    public MarathonBuilderImpl(final AppConfig config) {
+    public MarathonBuilderImpl(final EnvVars envVars, final AppConfig config) {
+        super(envVars, Util.replaceMacro(config.getUrl(), envVars), config.getCredentialsId());
         this.config = config;
-        this.envVars = new EnvVars();
-
-        setURLFromConfig();
     }
 
     public List<MarathonUri> getUris() {
@@ -95,14 +93,14 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder setEnvVars(final EnvVars vars) {
-        this.envVars = vars;
+    public MarathonBuilder setConfig(final AppConfig config) {
+        this.config = config;
         return this;
     }
 
     @Override
-    public MarathonBuilder setConfig(final AppConfig config) {
-        this.config = config;
+    public MarathonBuilder setConfig(DeployConfig config) {
+        LOGGER.warning("MarathonBuilderImpl does not currently support 'DeployConfig'-based configuration");
         return this;
     }
 
@@ -114,8 +112,6 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder build() {
-        setURLFromConfig();
-
         setId();
         setDockerImage();
         setUris();
@@ -128,7 +124,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     @Override
     public MarathonBuilder toFile(final String filename) throws InterruptedException, IOException, MarathonFileInvalidException {
         final String   realFilename     = filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON;
-        final FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, envVars));
+        final FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, getEnvVars()));
         if (renderedFilepath.exists() && renderedFilepath.isDirectory())
             throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory; not overwriting.");
 
@@ -218,13 +214,9 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     private JSONObject setId() {
         if (config.getAppId() != null && config.getAppId().trim().length() > 0)
-            json.put(MarathonBuilderUtils.JSON_ID_FIELD, Util.replaceMacro(config.getAppId(), envVars));
+            json.put(MarathonBuilderUtils.JSON_ID_FIELD, Util.replaceMacro(config.getAppId(), getEnvVars()));
 
         return json;
-    }
-
-    private void setURLFromConfig() {
-        if (config.getUrl() != null) setURL(Util.replaceMacro(config.getUrl(), envVars));
     }
 
     private JSONObject setDockerImage() {
@@ -244,7 +236,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
             container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD)
                     .element(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD,
-                            Util.replaceMacro(config.getDocker(), envVars));
+                            Util.replaceMacro(config.getDocker(), getEnvVars()));
         }
 
         return json;
@@ -264,7 +256,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 json.element(MarathonBuilderUtils.JSON_URI_FIELD, new JSONArray());
 
             for (MarathonUri uri : config.getUris()) {
-                json.accumulate(MarathonBuilderUtils.JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), envVars));
+                json.accumulate(MarathonBuilderUtils.JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), getEnvVars()));
             }
         }
 
@@ -277,8 +269,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
         final JSONObject labelObject = json.getJSONObject("labels");
         for (MarathonLabel label : config.getLabels()) {
-            labelObject.element(Util.replaceMacro(label.getName(), envVars),
-                    Util.replaceMacro(label.getValue(), envVars));
+            labelObject.element(Util.replaceMacro(label.getName(), getEnvVars()),
+                    Util.replaceMacro(label.getValue(), getEnvVars()));
         }
 
         return json;

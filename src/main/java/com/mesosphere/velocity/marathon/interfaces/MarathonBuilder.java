@@ -4,16 +4,19 @@ import com.mesosphere.velocity.marathon.auth.TokenAuthProvider;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
-import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
+import com.mesosphere.velocity.marathon.fields.DeployConfig;
 import com.mesosphere.velocity.marathon.impl.MarathonBuilderApiImpl;
+import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.FilePath;
+import hudson.Util;
 import mesosphere.marathon.client.utils.MarathonException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.logging.Logger;
 
 /**
@@ -25,41 +28,68 @@ public abstract class MarathonBuilder {
     /**
      * Local URL value that may be different than what was passed through config.
      */
-    private String url;
+    private final String url;
 
     /**
      * Local Credentials ID
      */
-    private String credentialsId;
+    private final String credentialsId;
+    private final EnvVars envVars;
+    private PrintStream jenkinsLogger;
+
+    protected MarathonBuilder(final EnvVars envVars, final String url, final String credentialsId) {
+        this.envVars = envVars;
+        this.url = url == null ? null : Util.replaceMacro(url, envVars);
+        this.credentialsId = credentialsId;
+    }
 
     /**
      * Create a new builder instance from config.
      *
+     * @param envVars Environment Variables
      * @param config Application configuration
      * @return A new builder
      */
-    public static MarathonBuilder getBuilder(final AppConfig config) {
-        return new MarathonBuilderImpl(config);
+    public static MarathonBuilder getBuilder(final EnvVars envVars, final AppConfig config) {
+        return new MarathonBuilderImpl(envVars, config);
     }
 
-    public static MarathonBuilder getBuilder(final String url, final String credentialId, final boolean forceUpdate) {
-        return new MarathonBuilderApiImpl(url, credentialId, forceUpdate);
+    public static MarathonBuilder getBuilder(final EnvVars envVars, final String url, final String credentialId) {
+        return new MarathonBuilderApiImpl(envVars, url, credentialId);
     }
 
     public String getURL() {
         return this.url;
     }
 
-    public void setURL(final String url) {
-        this.url = url;
-    }
-
     public String getCredentialsId() {
-        return credentialsId;
+        return this.credentialsId;
     }
 
-    public void setCredentialsId(String credentialsId) {
-        this.credentialsId = credentialsId;
+    protected EnvVars getEnvVars() {
+        return this.envVars;
+    }
+
+    /**
+     * Set the Jenkins Logger
+     *
+     * @param logger - Jenkins Logger
+     * @return This builder
+     */
+    public MarathonBuilder setLogger(final PrintStream logger) {
+        this.jenkinsLogger = logger;
+        return this;
+    }
+    /**
+     * Write text to the build's console log (logger), prefixed with
+     * "[Marathon]".
+     *
+     * @param text   message to log
+     */
+    protected void log(final String text) {
+        if (this.jenkinsLogger != null) {
+            this.jenkinsLogger.println("[Marathon] " + text);
+        }
     }
 
     /**
@@ -152,21 +182,20 @@ public abstract class MarathonBuilder {
     public abstract MarathonBuilder setJson(final JSONObject json);
 
     /**
-     * Set the Jenkins Environment Variables to vars. These are used when building the final Marathon
-     * payload to convert Jenkins variables to their values.
-     *
-     * @param vars Jenkins environment variables
-     * @return This builder
-     */
-    public abstract MarathonBuilder setEnvVars(final EnvVars vars);
-
-    /**
      * Set the Application Configuration to config.
      *
      * @param config application configuration
      * @return This builder
      */
     public abstract MarathonBuilder setConfig(final AppConfig config);
+
+    /**
+     * Set the Deployment Configuration to config.
+     *
+     * @param config - Deployment Configuration
+     * @return This builder
+     */
+    public abstract MarathonBuilder setConfig(final DeployConfig config);
 
     /**
      * Set the Jenkins workspace to ws.

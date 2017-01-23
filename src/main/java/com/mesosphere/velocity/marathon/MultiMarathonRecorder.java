@@ -44,7 +44,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 /**
- * Simple Marathon Recorder
+ * Multi-Marathon Recorder
  *
  * @author luketornquist
  * @since 1/21/17
@@ -55,8 +55,7 @@ public class MultiMarathonRecorder extends Recorder {
     private static final Logger LOGGER     = Logger.getLogger(MarathonRecorder.class.getName());
     private final String                        url;
     private       String                        credentialsId;
-    private       ArrayList<DeployConfig> deployments;
-    private       boolean                       forceUpdate;
+    private       ArrayList<DeployConfig>       deployments;
 
     @DataBoundConstructor
     public MultiMarathonRecorder(final String url) {
@@ -83,24 +82,6 @@ public class MultiMarathonRecorder extends Recorder {
     @DataBoundSetter
     public void setCredentialsId(final String credentialsId) {
         this.credentialsId = credentialsId;
-    }
-
-    /**
-     * Used by jelly or stapler to determine checkbox state.
-     *
-     * @return True if Force Update is enabled; False otherwise.
-     */
-    public boolean isForceUpdate() {
-        return getForceUpdate();
-    }
-
-    public boolean getForceUpdate() {
-        return forceUpdate;
-    }
-
-    @DataBoundSetter
-    public void setForceUpdate(final boolean forceUpdate) {
-        this.forceUpdate = forceUpdate;
     }
 
     @Override
@@ -141,12 +122,12 @@ public class MultiMarathonRecorder extends Recorder {
         if (buildSucceed) {
             for (DeployConfig deployConfig : this.deployments) {
                 try {
-                    final MarathonBuilder builder = MarathonBuilder.getBuilder(this.url, this.credentialsId, this.forceUpdate)
-                            .setEnvVars(envVars)
+                    final MarathonBuilder builder = MarathonBuilder.getBuilder(envVars, this.url, this.credentialsId)
+                            .setConfig(deployConfig)
                             .setWorkspace(build.getWorkspace())
+                            .setLogger(logger)
                             .read(deployConfig.getFilename())
-                            .build()
-                            .toFile();
+                            .build();
 
                     // update & possible retry
                     boolean retry = true;
