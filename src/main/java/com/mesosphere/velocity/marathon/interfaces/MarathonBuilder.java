@@ -54,8 +54,8 @@ public abstract class MarathonBuilder {
         return new MarathonBuilderImpl(envVars, config);
     }
 
-    public static MarathonBuilder getBuilder(final EnvVars envVars, final String url, final String credentialId) {
-        return new MarathonBuilderApiImpl(envVars, url, credentialId);
+    public static MarathonBuilder getBuilder(final EnvVars envVars, final String url, final String credentialId, final boolean injectJenkinsVariables) {
+        return new MarathonBuilderApiImpl(envVars, url, credentialId, injectJenkinsVariables);
     }
 
     public String getURL() {
@@ -143,6 +143,13 @@ public abstract class MarathonBuilder {
             }
         }
         return this;
+    }
+
+    protected String replaceMacro(String value) {
+        if (this.envVars != null && value != null) {
+            return Util.replaceMacro(value, this.envVars);
+        }
+        return value;
     }
 
     /**

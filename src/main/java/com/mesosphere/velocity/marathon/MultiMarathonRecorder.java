@@ -54,6 +54,7 @@ public class MultiMarathonRecorder extends Recorder {
     public static final  DescriptorImpl DESCRIPTOR = new DescriptorImpl();
     private static final Logger LOGGER     = Logger.getLogger(MarathonRecorder.class.getName());
     private final String                        url;
+    private       boolean                       injectJenkinsVariables;
     private       String                        credentialsId;
     private       ArrayList<DeployConfig>       deployments;
 
@@ -66,15 +67,6 @@ public class MultiMarathonRecorder extends Recorder {
         return url;
     }
 
-    public List<DeployConfig> getDeployments() {
-        return deployments;
-    }
-
-    @DataBoundSetter
-    public void setDeployments(@Nonnull final List<DeployConfig> deployments) {
-        this.deployments = new ArrayList<>(deployments);
-    }
-
     public String getCredentialsId() {
         return this.credentialsId;
     }
@@ -82,6 +74,28 @@ public class MultiMarathonRecorder extends Recorder {
     @DataBoundSetter
     public void setCredentialsId(final String credentialsId) {
         this.credentialsId = credentialsId;
+    }
+
+    public boolean isInjectJenkinsVariables() {
+        return injectJenkinsVariables;
+    }
+
+    public boolean getInjectJenkinsVariables() {
+        return injectJenkinsVariables;
+    }
+
+    @DataBoundSetter
+    public void setInjectJenkinsVariables(boolean injectJenkinsVariables) {
+        this.injectJenkinsVariables = injectJenkinsVariables;
+    }
+
+    public List<DeployConfig> getDeployments() {
+        return deployments;
+    }
+
+    @DataBoundSetter
+    public void setDeployments(@Nonnull final List<DeployConfig> deployments) {
+        this.deployments = new ArrayList<>(deployments);
     }
 
     @Override
@@ -122,7 +136,7 @@ public class MultiMarathonRecorder extends Recorder {
         if (buildSucceed) {
             for (DeployConfig deployConfig : this.deployments) {
                 try {
-                    final MarathonBuilder builder = MarathonBuilder.getBuilder(envVars, this.url, this.credentialsId)
+                    final MarathonBuilder builder = MarathonBuilder.getBuilder(envVars, this.url, this.credentialsId, this.injectJenkinsVariables)
                         .setConfig(deployConfig)
                         .setWorkspace(build.getWorkspace())
                         .setLogger(logger)

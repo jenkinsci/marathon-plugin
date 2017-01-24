@@ -41,6 +41,10 @@ public class MarathonBuilderUtils {
      */
     public static final String JSON_ID_FIELD           = "id";
     /**
+     * Environment field; available from the root of the App JSON.
+     */
+    public static final String JSON_ENV_FIELD          = "env";
+    /**
      * URIs field; available from the root of the App JSON.
      */
     public static final String JSON_URI_FIELD          = "uris";

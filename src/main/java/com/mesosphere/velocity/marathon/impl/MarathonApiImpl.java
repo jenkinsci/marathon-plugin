@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.mesosphere.velocity.marathon.interfaces.MarathonApi;
 import com.mesosphere.velocity.marathon.util.MarathonApiConstant;
 import hudson.remoting.Base64;
@@ -158,10 +159,15 @@ public class MarathonApiImpl implements MarathonApi {
     }
 
     private String prettyPrintJson(String jsonString) {
-        JsonParser parser = new JsonParser();
-        JsonObject json = parser.parse(jsonString).getAsJsonObject();
+        try {
+            JsonParser parser = new JsonParser();
+            JsonObject json = parser.parse(jsonString).getAsJsonObject();
 
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        return gson.toJson(json);
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            return gson.toJson(json);
+        } catch (JsonSyntaxException jse) {
+            LOGGER.warning("JSON Syntax issue while trying to pretty print JSON. Defaulting to standard JSON format.\n" + jse.getMessage());
+            return jsonString;
+        }
     }
 }

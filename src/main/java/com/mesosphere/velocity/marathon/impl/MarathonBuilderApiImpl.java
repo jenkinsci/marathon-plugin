@@ -26,16 +26,22 @@ import java.util.logging.Logger;
  */
 public class MarathonBuilderApiImpl extends MarathonBuilder {
     private static final Logger LOGGER = Logger.getLogger(MarathonBuilderApiImpl.class.getName());
+    private static final String INJECT_VARIABLE_TEMPLATE = "Injecting: [%s] as [%s]";
+    private static final String JENKINS_BUILD_NAME_VARIABLE = "JENKINS_BUILD_NUMBER";
+    private static final String JENKINS_JOB_NAME_VARIABLE = "JENKINS_JOB_NAME";
+    private static final String JENKINS_GIT_COMMIT_VARIABLE = "JENKINS_GIT_COMMIT";
     private DeployConfig deployConfig;
     private JSONObject json;
     private FilePath workspace;
+    private boolean injectJenkinsVariables;
 
     public MarathonBuilderApiImpl() {
-        this(new EnvVars(), null, null);
+        this(new EnvVars(), null, null, true);
     }
 
-    public MarathonBuilderApiImpl(final EnvVars envVars, final String url, String credentialId) {
+    public MarathonBuilderApiImpl(final EnvVars envVars, final String url, final String credentialId, final boolean injectJenkinsVariables) {
         super(envVars, url, credentialId);
+        this.injectJenkinsVariables = injectJenkinsVariables;
     }
 
     @Override
@@ -48,7 +54,6 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
         } else if (marathonFile.isDirectory()) {
             throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory.");
         }
-
         final String content = marathonFile.readToString();
         // TODO: Validate the JSON?
         this.json = JSONObject.fromObject(content);
@@ -130,12 +135,13 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
     private void replaceValuesInJson() {
         replaceAppId();
         replaceDockerImage();
+        injectEnvironmentVariables();
     }
 
     private void replaceAppId() {
         if (this.json != null && StringUtils.isNotBlank(this.deployConfig.getAppId())) {
             final String previousId = this.json.getString(MarathonBuilderUtils.JSON_ID_FIELD);
-            final String newId = Util.replaceMacro(deployConfig.getAppId(), getEnvVars());
+            final String newId = replaceMacro(deployConfig.getAppId());
             log(String.format("Replacing Application ID: [%s] => [%s]", previousId, newId));
             json.put(MarathonBuilderUtils.JSON_ID_FIELD, newId);
         }
@@ -155,9 +161,29 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
             final JSONObject docker = container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD);
 
             final String previousImage = docker.getString(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD);
-            final String newImage = Util.replaceMacro(deployConfig.getDockerImage(), getEnvVars());
+            final String newImage = replaceMacro(deployConfig.getDockerImage());
             log(String.format("Replacing Docker Image: [%s] => [%s]", previousImage, newImage));
             docker.put(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD, newImage);
+        }
+    }
+
+    private void injectEnvironmentVariables() {
+        if (this.json != null && this.injectJenkinsVariables) {
+            // Verify that container exists in the JSON
+            if (!this.json.has(MarathonBuilderUtils.JSON_ENV_FIELD)) {
+                this.json.element(MarathonBuilderUtils.JSON_ENV_FIELD, new JSONObject());
+            }
+            final JSONObject env = this.json.getJSONObject(MarathonBuilderUtils.JSON_ENV_FIELD);
+            log("Injecting Jenkins Environment Variables");
+            final String buildNumber = replaceMacro("${BUILD_NUMBER}");
+            env.put(JENKINS_BUILD_NAME_VARIABLE, buildNumber);
+            log(String.format(INJECT_VARIABLE_TEMPLATE, JENKINS_BUILD_NAME_VARIABLE, buildNumber));
+            final String jobName = replaceMacro("${JOB_NAME}");
+            env.put(JENKINS_JOB_NAME_VARIABLE, jobName);
+            log(String.format(INJECT_VARIABLE_TEMPLATE, JENKINS_JOB_NAME_VARIABLE, jobName));
+            final String gitCommit = replaceMacro("${GIT_COMMIT}");
+            env.put(JENKINS_GIT_COMMIT_VARIABLE, gitCommit);
+            log(String.format(INJECT_VARIABLE_TEMPLATE, JENKINS_GIT_COMMIT_VARIABLE, gitCommit));
         }
     }
 }
