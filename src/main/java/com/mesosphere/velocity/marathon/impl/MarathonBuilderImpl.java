@@ -40,7 +40,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     public MarathonBuilderImpl(final EnvVars envVars, final AppConfig config) {
-        super(envVars, Util.replaceMacro(config.getUrl(), envVars), config.getCredentialsId());
+        super(envVars, config == null ? null : config.getUrl(),
+              config == null ? null : config.getCredentialsId());
         this.config = config;
     }
 
