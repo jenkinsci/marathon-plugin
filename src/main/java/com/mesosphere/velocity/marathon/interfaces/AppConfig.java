@@ -38,6 +38,13 @@ public interface AppConfig {
     String getDocker();
 
     /**
+     * Get the configured docker image force pull flag.
+     *
+     * @return Docker image force pull flag
+     */
+    boolean getDockerForcePull();
+
+    /**
      * Get the Jenkins credentials id for this configuration.
      *
      * @return credentials id
