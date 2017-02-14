@@ -33,6 +33,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       String              appid;
     private       String              id;
     private       String              docker;
+    private       boolean             dockerForcePull;
     private       String              filename;
     private       String              credentialsId;
     private       boolean             forceUpdate;
@@ -65,6 +66,10 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
     public String getDocker() {
         return docker;
+    }
+
+    public boolean getDockerForcePull() {
+        return dockerForcePull;
     }
 
     @Override
@@ -106,6 +111,11 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     @DataBoundSetter
     public void setDocker(final String docker) {
         this.docker = docker;
+    }
+
+    @DataBoundSetter
+    public void setDockerForcePull(final boolean dockerForcePull) {
+        this.dockerForcePull = dockerForcePull;
     }
 
     /**

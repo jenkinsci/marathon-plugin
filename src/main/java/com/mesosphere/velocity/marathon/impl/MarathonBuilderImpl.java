@@ -64,6 +64,10 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         return config.getDocker();
     }
 
+    public boolean getDockerForcePull() {
+        return config.getDockerForcePull();
+    }
+
     /**
      * Perform the actual update call to Marathon. If a 401 (Unauthenticated) response is received,
      * this will try to retrieve a new token from DC/OS using JWT credentials.
@@ -292,6 +296,11 @@ public class MarathonBuilderImpl extends MarathonBuilder {
             container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD)
                     .element(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD,
                             Util.replaceMacro(config.getDocker(), envVars));
+
+            container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD)
+                    .element(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FORCE_PULL,
+                            config.getDockerForcePull());
+
         }
 
         return json;

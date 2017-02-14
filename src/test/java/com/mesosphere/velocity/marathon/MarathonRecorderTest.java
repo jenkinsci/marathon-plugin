@@ -128,6 +128,7 @@ public class MarathonRecorderTest {
                 "    \"type\": \"DOCKER\",\n" +
                 "    \"docker\": {\n" +
                 "      \"image\": \"mesosphere/test-app:latest\",\n" +
+                "      \"forcePullImage\": true,\n" +
                 "      \"network\": \"BRIDGE\",\n" +
                 "      \"portMappings\": [\n" +
                 "        {\n" +

@@ -50,6 +50,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       List<MarathonLabel> labels;
     private       String              appid;
     private       String              docker;
+    private       boolean             dockerForcePull;
     private       String              filename;
     private       String              credentialsId;
     private       boolean             forceUpdate;
@@ -191,6 +192,10 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         return docker;
     }
 
+    public boolean getDockerForcePull() {
+        return dockerForcePull;
+    }
+
     public String getCredentialsId() {
         return this.credentialsId;
     }
@@ -221,6 +226,11 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setDocker(@Nonnull final String docker) {
         this.docker = docker;
+    }
+
+    @DataBoundSetter
+    public void setDockerForcePull(@Nonnull final boolean dockerForcePull) {
+        this.dockerForcePull = dockerForcePull;
     }
 
     /**

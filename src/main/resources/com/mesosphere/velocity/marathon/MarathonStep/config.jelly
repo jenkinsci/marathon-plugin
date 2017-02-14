@@ -15,6 +15,9 @@
     <f:entry field="docker" title="${%Docker Image}">
         <f:textbox/>
     </f:entry>
+    <f:entry field="dockerForcePull" title="${%Docker Image force pull}">
+        <f:checkbox/>
+    </f:entry>
     <f:entry field="filename" title="${%Application Definition}">
         <f:textbox/>
     </f:entry>
