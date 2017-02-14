@@ -1,12 +1,15 @@
 package com.mesosphere.velocity.marathon.interfaces;
 
+import com.google.gson.JsonSyntaxException;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
 import hudson.EnvVars;
 import hudson.FilePath;
+import mesosphere.marathon.client.model.v2.App;
 import mesosphere.marathon.client.utils.MarathonException;
+import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONObject;
 
 import java.io.IOException;
@@ -20,6 +23,10 @@ public abstract class MarathonBuilder {
      * Local URL value that may be different than what was passed through config.
      */
     private String url;
+    /**
+     * Marathon application.
+     */
+    private App    app;
 
     /**
      * Create a new builder instance from config.
@@ -37,6 +44,17 @@ public abstract class MarathonBuilder {
 
     public void setURL(final String url) {
         this.url = url;
+    }
+
+    public App getApp() { return this.app; }
+
+    /**
+     * Set Marathon application from JSON object.
+     *
+     * @param json JSON object to initially build Marathon application from
+     */
+    protected void setAppFromJson(JSONObject json) throws JsonSyntaxException {
+        this.app = ModelUtils.GSON.fromJson(json.toString(), App.class);
     }
 
     /**
