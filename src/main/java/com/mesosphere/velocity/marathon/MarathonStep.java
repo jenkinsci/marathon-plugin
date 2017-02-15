@@ -1,16 +1,12 @@
 package com.mesosphere.velocity.marathon;
 
-import com.mesosphere.velocity.marathon.fields.MarathonLabel;
-import com.mesosphere.velocity.marathon.fields.MarathonUri;
-import com.mesosphere.velocity.marathon.interfaces.AppConfig;
-import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
-import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.model.Item;
-import hudson.model.TaskListener;
-import hudson.util.ListBoxModel;
+import hudson.util.FormValidation;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.annotation.Nonnull;
+import javax.inject.Inject;
+
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
@@ -19,17 +15,24 @@ import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-import javax.annotation.Nonnull;
-import javax.inject.Inject;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.interfaces.AppConfig;
+import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
+import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
+
+import hudson.EnvVars;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.model.Item;
+import hudson.model.TaskListener;
+import hudson.util.ListBoxModel;
+import org.kohsuke.stapler.QueryParameter;
 
 public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private final String              url;
-    private       List<String>        uris;
-    private       Map<String, String> labels;   // this does not work :(
+    private       List<MarathonUri>   uris;
+    private       List<MarathonLabel> labels;   // this does not work :(
     private       String              appid;
     private       String              id;
     private       String              docker;
@@ -41,8 +44,8 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     @DataBoundConstructor
     public MarathonStep(final String url) {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
-        this.uris = new ArrayList<String>(5);
-        this.labels = new HashMap<String, String>(5);
+        this.uris = new ArrayList<MarathonUri>(5);
+        this.labels = new ArrayList<MarathonLabel>(5);
     }
 
     @Override
@@ -84,27 +87,27 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
     public List<MarathonUri> getUris() {
         final List<MarathonUri> marathonUris = new ArrayList<MarathonUri>(this.uris.size());
-        for (final String u : this.uris) {
-            marathonUris.add(new MarathonUri(u));
+        for (final MarathonUri u : this.uris) {
+            marathonUris.add(new MarathonUri(u.getUri()));
         }
         return marathonUris;
     }
 
     @DataBoundSetter
-    public void setUris(final List<String> uris) {
+    public void setUris(final List<MarathonUri> uris) {
         this.uris = uris;
     }
 
     public List<MarathonLabel> getLabels() {
         final List<MarathonLabel> marathonLabels = new ArrayList<MarathonLabel>(this.labels.size());
-        for (final Map.Entry<String, String> label : this.labels.entrySet()) {
-            marathonLabels.add(new MarathonLabel(label.getKey(), label.getValue()));
+        for (final MarathonLabel label : this.labels) {
+            marathonLabels.add(new MarathonLabel(label.getName(), label.getValue()));
         }
         return marathonLabels;
     }
 
     @DataBoundSetter
-    public void setLabels(final Map<String, String> labels) {
+    public void setLabels(final List<MarathonLabel> labels) {
         this.labels = labels;
     }
 
@@ -179,6 +182,14 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
         public DescriptorImpl() {
             super(MarathonStepExecution.class);
+        }
+
+        public FormValidation doCheckUrl(@QueryParameter final String value) {
+            return delegate.doCheckUrl(value);
+        }
+
+        public FormValidation doCheckUri(@QueryParameter final String value) {
+            return delegate.doCheckUri(value);
         }
 
         @Override
