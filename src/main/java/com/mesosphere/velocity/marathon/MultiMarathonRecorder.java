@@ -137,33 +137,53 @@ public class MultiMarathonRecorder extends Recorder {
             for (DeployConfig deployConfig : this.deployments) {
                 try {
                     final MarathonBuilder builder = MarathonBuilder.getBuilder(envVars, this.url, this.credentialsId, this.injectJenkinsVariables)
-                        .setConfig(deployConfig)
-                        .setWorkspace(build.getWorkspace())
-                        .setLogger(logger)
-                        .read(deployConfig.getFilename())
-                        .build();
-                    builder.update();
-                    log(logger, "Marathon application updated.");
-                }
-                catch (MarathonException e) {
-                    build.setResult(Result.FAILURE);
-                    log(logger, "Failed to update Marathon application:");
-                    log(logger, e.getMessage());
-                    LOGGER.severe(e.getMessage());
-                }
-                catch (MarathonFileMissingException e) {
+                            .setConfig(deployConfig)
+                            .setWorkspace(build.getWorkspace())
+                            .setLogger(logger)
+                            .read(deployConfig.getFilename())
+                            .build();
+
+                    // update & possible retry
+                    boolean retry = true;
+                    int retryCount = 0;
+                    while (retry && retryCount < 3) {
+                        try {
+                            builder.update();
+                            retry = false;
+                            log(logger, "Marathon application updated.");
+                        } catch (MarathonException e) {
+                            // 409 is app already deployed and should trigger retry
+                            // 4xx and 5xx errors are build failures
+                            if (e.getStatus() != 409
+                                    && (e.getStatus() >= 400 && e.getStatus() < 600)) {
+                                build.setResult(Result.FAILURE);
+                                log(logger, "Failed to update Marathon application:");
+                                log(logger, e.getMessage());
+                                LOGGER.warning(e.getMessage());
+                                retry = false;
+                            } else {
+                                // retry.
+                                retryCount++;
+                                Thread.sleep(5000L);    // 5 seconds
+                            }
+                        }
+                    }
+
+                    if (retry) {
+                        build.setResult(Result.FAILURE);
+                        log(logger, "Reached max retries updating Marathon application.");
+                    }
+                } catch (MarathonFileMissingException e) {
                     // "marathon.json" or whatever does not exist.
                     build.setResult(Result.FAILURE);
                     log(logger, "Application Definition not found:");
                     log(logger, e.getMessage());
-                }
-                catch (MarathonFileInvalidException e) {
+                } catch (MarathonFileInvalidException e) {
                     // file is a directory or something.
                     build.setResult(Result.FAILURE);
                     log(logger, "Application Definition is not a file:");
                     log(logger, e.getMessage());
-                }
-                catch (AuthenticationException e) {
+                } catch (AuthenticationException e) {
                     build.setResult(Result.FAILURE);
                     log(logger, "Authentication to Marathon instance failed:");
                     log(logger, e.getMessage());
