@@ -238,6 +238,10 @@ public class MarathonBuilderImpl extends MarathonBuilder {
             container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD)
                     .element(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD,
                             Util.replaceMacro(config.getDocker(), getEnvVars()));
+
+            container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD)
+                    .element(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FORCE_PULL,
+                            config.getDockerForcePull());
         }
 
         return json;
