@@ -57,7 +57,6 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       String              credentialsId;
     private       boolean             forceUpdate;
 
-
     @DataBoundConstructor
     public MarathonRecorder(final String url) {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
