@@ -11,6 +11,7 @@ import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.fields.MarathonVars;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
@@ -48,6 +49,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private final String              url;
     private       List<MarathonUri>   uris;
     private       List<MarathonLabel> labels;
+    private       List<MarathonVars>  env;
     private       String              appid;
     private       String              docker;
     private       boolean             dockerForcePull;
@@ -55,12 +57,14 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       String              credentialsId;
     private       boolean             forceUpdate;
 
+
     @DataBoundConstructor
     public MarathonRecorder(final String url) {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
 
         this.uris = new ArrayList<MarathonUri>(5);
         this.labels = new ArrayList<MarathonLabel>(5);
+        this.env = new ArrayList<MarathonVars>(5);
     }
 
     public String getAppid() {
@@ -231,6 +235,15 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setDockerForcePull(@Nonnull final boolean dockerForcePull) {
         this.dockerForcePull = dockerForcePull;
+    }
+
+    public List<MarathonVars> getEnv() {
+        return env;
+    }
+
+    @DataBoundSetter
+    public void setEnvironment(final List<MarathonVars> env) {
+        this.env = env;
     }
 
     /**

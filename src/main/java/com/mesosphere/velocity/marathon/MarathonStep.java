@@ -1,5 +1,6 @@
 package com.mesosphere.velocity.marathon;
 
+import com.mesosphere.velocity.marathon.fields.MarathonVars;
 import hudson.util.FormValidation;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private final String              url;
     private       List<MarathonUri>   uris;
     private       List<MarathonLabel> labels;   // this does not work :(
+    private       List<MarathonVars>  env;
     private       String              appid;
     private       String              id;
     private       String              docker;
@@ -46,6 +48,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
         this.uris = new ArrayList<MarathonUri>(5);
         this.labels = new ArrayList<MarathonLabel>(5);
+        this.env = new ArrayList<MarathonVars>(5);
     }
 
     @Override
@@ -65,6 +68,19 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     @DataBoundSetter
     public void setForceUpdate(final boolean forceUpdate) {
         this.forceUpdate = forceUpdate;
+    }
+
+    public List<MarathonVars> getEnv() {
+        final List<MarathonVars> marathonVarsList = new ArrayList<MarathonVars>(this.env.size());
+        for (final MarathonVars envElem : this.env) {
+            marathonVarsList.add(new MarathonVars(envElem.getName(), envElem.getValue()));
+        }
+        return marathonVarsList;
+    }
+
+    @DataBoundSetter
+    public void setEnv(final List<MarathonVars> env) {
+        this.env = env;
     }
 
     public String getDocker() {

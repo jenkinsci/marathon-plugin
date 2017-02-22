@@ -8,6 +8,7 @@ import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.fields.MarathonVars;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
@@ -172,6 +173,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         setDockerImage();
         setUris();
         setLabels();
+        setEnv();
 
         this.app = ModelUtils.GSON.fromJson(json.toString(), App.class);
         return this;
@@ -335,6 +337,20 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         for (MarathonLabel label : config.getLabels()) {
             labelObject.element(Util.replaceMacro(label.getName(), envVars),
                     Util.replaceMacro(label.getValue(), envVars));
+        }
+
+        return json;
+    }
+
+
+    private JSONObject setEnv() {
+        if (!json.has("env"))
+            json.element("env", new JSONObject());
+
+        final JSONObject envObject = json.getJSONObject("env");
+        for (MarathonVars var : config.getEnv()) {
+            envObject.element(Util.replaceMacro(var.getName(), envVars),
+                    Util.replaceMacro(var.getValue(), envVars));
         }
 
         return json;
