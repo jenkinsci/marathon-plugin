@@ -46,7 +46,10 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder read(final String filename) throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
-        final String   realFilename = StringUtils.isNotBlank(filename) ? filename : MarathonBuilderUtils.MARATHON_JSON;
+        final String   realFilename = StringUtils.isNotBlank(filename) ? Util.replaceMacro(filename, getEnvVars()): MarathonBuilderUtils.MARATHON_JSON;
+        if (realFilename == null) {
+            throw new MarathonFileMissingException(filename);
+        }
         final FilePath marathonFile = workspace.child(realFilename);
 
         if (!marathonFile.exists()) {
