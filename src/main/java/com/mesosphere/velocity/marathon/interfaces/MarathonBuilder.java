@@ -1,18 +1,21 @@
 package com.mesosphere.velocity.marathon.interfaces;
 
+import com.google.gson.JsonSyntaxException;
 import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
 import hudson.EnvVars;
 import hudson.FilePath;
+import mesosphere.marathon.client.model.v2.App;
 import mesosphere.marathon.client.utils.MarathonException;
+import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONObject;
 
 import java.io.IOException;
 
 /**
- * This builds {@see MarathonClient}s from Jenkins, file system, and JSON pieces.
+ * This builds {@link mesosphere.marathon.client.MarathonClient Marathon Clients} from Jenkins, file system, and JSON pieces.
  * This allows the construction of the final payload as well as sending it to the target Marathon instance.
  */
 public abstract class MarathonBuilder {
@@ -20,6 +23,10 @@ public abstract class MarathonBuilder {
      * Local URL value that may be different than what was passed through config.
      */
     private String url;
+    /**
+     * Marathon application.
+     */
+    private App    app;
 
     /**
      * Create a new builder instance from config.
@@ -39,11 +46,23 @@ public abstract class MarathonBuilder {
         this.url = url;
     }
 
+    public App getApp() { return this.app; }
+
+    /**
+     * Set Marathon application from JSON object.
+     *
+     * @param json JSON object to initially build Marathon application from
+     */
+    protected void setAppFromJson(JSONObject json) throws JsonSyntaxException {
+        this.app = ModelUtils.GSON.fromJson(json.toString(), App.class);
+    }
+
     /**
      * Update the Marathon application.
      *
      * @return This builder
-     * @throws MarathonException
+     * @throws MarathonException on error talking to Marathon service
+     * @throws AuthenticationException when authentication with Marathon service fails
      */
     public abstract MarathonBuilder update() throws MarathonException, AuthenticationException;
 
@@ -52,10 +71,10 @@ public abstract class MarathonBuilder {
      *
      * @param filename Path to the JSON file
      * @return This builder
-     * @throws IOException
-     * @throws InterruptedException
-     * @throws MarathonFileMissingException
-     * @throws MarathonFileInvalidException
+     * @throws IOException on IO issues
+     * @throws InterruptedException on complications reading file
+     * @throws MarathonFileMissingException when the Marathon config file is missing
+     * @throws MarathonFileInvalidException when the Marathon config is not a file
      */
     public abstract MarathonBuilder read(final String filename)
             throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException;
@@ -64,10 +83,10 @@ public abstract class MarathonBuilder {
      * Read in default file (marathon.json) as JSON.
      *
      * @return This builder
-     * @throws IOException
-     * @throws InterruptedException
-     * @throws MarathonFileMissingException
-     * @throws MarathonFileInvalidException
+     * @throws IOException on IO issues
+     * @throws InterruptedException on complications reading file
+     * @throws MarathonFileMissingException when the Marathon config file is missing
+     * @throws MarathonFileInvalidException when the Marathon config is not a file
      * @see #read(String)
      */
     public abstract MarathonBuilder read()
@@ -122,9 +141,9 @@ public abstract class MarathonBuilder {
      *
      * @param filename File to write rendered JSON
      * @return This builder
-     * @throws InterruptedException
-     * @throws MarathonFileInvalidException
-     * @throws IOException
+     * @throws InterruptedException when issues encountered with filesystem
+     * @throws MarathonFileInvalidException when Marathon config file is not a file
+     * @throws IOException on IO issues
      */
     public abstract MarathonBuilder toFile(final String filename)
             throws InterruptedException, MarathonFileInvalidException, IOException;
@@ -134,9 +153,9 @@ public abstract class MarathonBuilder {
      * (marathon-rendered-${BUILD_NUMBER}.json).
      *
      * @return This builder
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws MarathonFileInvalidException
+     * @throws InterruptedException when issues encountered with filesystem
+     * @throws IOException on IO issues
+     * @throws MarathonFileInvalidException when Marathon config file is not a file
      * @see #toFile(String)
      */
     public abstract MarathonBuilder toFile()
