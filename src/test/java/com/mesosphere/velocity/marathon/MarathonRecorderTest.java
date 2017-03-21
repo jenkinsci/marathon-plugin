@@ -11,7 +11,6 @@ import hudson.model.*;
 import hudson.tasks.Shell;
 import hudson.util.Secret;
 import net.sf.json.JSONObject;
-import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
@@ -60,7 +59,7 @@ public class MarathonRecorderTest {
         project.getBuildersList().add(new Shell("echo hello"));
 
         // add recorder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        project.getPublishersList().add(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer)));
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
@@ -81,7 +80,7 @@ public class MarathonRecorderTest {
         final String           payload     = "{\"id\":\"myapp\"}";
         final FreeStyleProject project     = j.createFreeStyleProject();
         final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        enqueueJsonResponse(responseStr);
+        TestUtils.enqueueJsonResponse(httpServer, responseStr);
 
         // add builders
         setupBasicProject(payload, project);
@@ -147,7 +146,7 @@ public class MarathonRecorderTest {
         final JSONObject       payloadJson = JSONObject.fromObject(payload);
         final FreeStyleProject project     = j.createFreeStyleProject();
         final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        enqueueJsonResponse(responseStr);
+        TestUtils.enqueueJsonResponse(httpServer, responseStr);
 
         // add builders
         setupBasicProject(payload, project);
@@ -179,14 +178,14 @@ public class MarathonRecorderTest {
         final String           payload = "{\"id\":\"myapp\"}";
         final FreeStyleProject project = j.createFreeStyleProject();
         // return 409 to trigger retry logic
-        enqueueFailureResponse(409);
-        enqueueFailureResponse(409);
-        enqueueFailureResponse(409);
+        TestUtils.enqueueFailureResponse(httpServer, 409);
+        TestUtils.enqueueFailureResponse(httpServer, 409);
+        TestUtils.enqueueFailureResponse(httpServer, 409);
         // add a few more in case of loop bugs.
         // (this can cause tests to hang if the server is no longer responding)
-        enqueueFailureResponse(409);
-        enqueueFailureResponse(409);
-        enqueueFailureResponse(409);
+        TestUtils.enqueueFailureResponse(httpServer, 409);
+        TestUtils.enqueueFailureResponse(httpServer, 409);
+        TestUtils.enqueueFailureResponse(httpServer, 409);
 
         // add builders
         setupBasicProject(payload, project);
@@ -210,7 +209,7 @@ public class MarathonRecorderTest {
         final String           payload = "{\"id\":\"myapp\"}";
         final FreeStyleProject project = j.createFreeStyleProject();
         // return a 404, which will fail the build
-        enqueueFailureResponse(404);
+        TestUtils.enqueueFailureResponse(httpServer, 404);
         setupBasicProject(payload, project);
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
@@ -230,12 +229,12 @@ public class MarathonRecorderTest {
         final String           payload     = "{\"id\":\"myapp\"}";
         final FreeStyleProject project     = j.createFreeStyleProject();
         final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        enqueueJsonResponse(responseStr);
+        TestUtils.enqueueJsonResponse(httpServer, responseStr);
 
         // add builders
         addBuilders(payload, project);
         // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss() + "${BUILD_NUMBER}"));
+        project.getPublishersList().add(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer) + "${BUILD_NUMBER}"));
 
         // run a build with the shell step and recorder publisher
         final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
@@ -265,7 +264,7 @@ public class MarathonRecorderTest {
         final String           payload = "{\"id\":\"myapp\"}";
         final FreeStyleProject project = j.createFreeStyleProject();
         // return a 503, which will fail the build
-        enqueueFailureResponse(503);
+        TestUtils.enqueueFailureResponse(httpServer, 503);
 
         // add builders
         setupBasicProject(payload, project);
@@ -283,7 +282,7 @@ public class MarathonRecorderTest {
         final String           payload     = "{\"id\":\"myapp\"}";
         final FreeStyleProject project     = j.createFreeStyleProject();
         final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        enqueueJsonResponse(responseStr);
+        TestUtils.enqueueJsonResponse(httpServer, responseStr);
 
         final SystemCredentialsProvider.ProviderImpl system      = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
         final CredentialsStore                       systemStore = system.getStore(j.getInstance());
@@ -319,7 +318,7 @@ public class MarathonRecorderTest {
         final String           payload     = "{\"id\":\"myapp\"}";
         final FreeStyleProject project     = j.createFreeStyleProject();
         final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        enqueueJsonResponse(responseStr);
+        TestUtils.enqueueJsonResponse(httpServer, responseStr);
 
         final SystemCredentialsProvider.ProviderImpl system          = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
         final CredentialsStore                       systemStore     = system.getStore(j.getInstance());
@@ -362,7 +361,7 @@ public class MarathonRecorderTest {
         final String                                 credentialValue = "{\"field1\":\"some value\"}";
         final Secret                                 secret          = Secret.fromString(credentialValue);
         final StringCredentials                      credential      = new StringCredentialsImpl(CredentialsScope.GLOBAL, "invalidtoken", "a token for JSON token test", secret);
-        enqueueFailureResponse(401);
+        TestUtils.enqueueFailureResponse(httpServer, 401);
 
         systemStore.addCredentials(Domain.global(), credential);
 
@@ -383,38 +382,17 @@ public class MarathonRecorderTest {
     }
 
     private void addPostBuilders(FreeStyleProject project, String jsontoken) {
-        MarathonRecorder marathonRecorder = new MarathonRecorder(getHttpAddresss());
+        MarathonRecorder marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer));
         marathonRecorder.setCredentialsId(jsontoken);
         project.getPublishersList().add(marathonRecorder);
     }
 
-    private String getHttpAddresss() {
-        return httpServer.url("/").toString();
-    }
-
-    /**
-     * Enqueue a JSON response with the proper headers set.
-     *
-     * @param responseStr JSON payload
-     */
-    private void enqueueJsonResponse(String responseStr) {
-        httpServer.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(responseStr));
-    }
-
-    /**
-     * Enqueue an empty response with given status code.
-     *
-     * @param statusCode status code to return
-     */
-    private void enqueueFailureResponse(final int statusCode) {
-        httpServer.enqueue(new MockResponse().setResponseCode(statusCode));
-    }
 
     private void setupBasicProject(String payload, FreeStyleProject project) {
         // add builders
         addBuilders(payload, project);
         // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(getHttpAddresss()));
+        project.getPublishersList().add(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer)));
     }
 
     private TestBuilder createMarathonFileBuilder(final String payload) {
