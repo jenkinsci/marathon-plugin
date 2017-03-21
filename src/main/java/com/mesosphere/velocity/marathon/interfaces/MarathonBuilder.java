@@ -15,7 +15,7 @@ import net.sf.json.JSONObject;
 import java.io.IOException;
 
 /**
- * This builds {@see MarathonClient}s from Jenkins, file system, and JSON pieces.
+ * This builds {@link mesosphere.marathon.client.MarathonClient Marathon Clients} from Jenkins, file system, and JSON pieces.
  * This allows the construction of the final payload as well as sending it to the target Marathon instance.
  */
 public abstract class MarathonBuilder {
@@ -61,7 +61,8 @@ public abstract class MarathonBuilder {
      * Update the Marathon application.
      *
      * @return This builder
-     * @throws MarathonException
+     * @throws MarathonException on error talking to Marathon service
+     * @throws AuthenticationException when authentication with Marathon service fails
      */
     public abstract MarathonBuilder update() throws MarathonException, AuthenticationException;
 
@@ -70,10 +71,10 @@ public abstract class MarathonBuilder {
      *
      * @param filename Path to the JSON file
      * @return This builder
-     * @throws IOException
-     * @throws InterruptedException
-     * @throws MarathonFileMissingException
-     * @throws MarathonFileInvalidException
+     * @throws IOException on IO issues
+     * @throws InterruptedException on complications reading file
+     * @throws MarathonFileMissingException when the Marathon config file is missing
+     * @throws MarathonFileInvalidException when the Marathon config is not a file
      */
     public abstract MarathonBuilder read(final String filename)
             throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException;
@@ -82,10 +83,10 @@ public abstract class MarathonBuilder {
      * Read in default file (marathon.json) as JSON.
      *
      * @return This builder
-     * @throws IOException
-     * @throws InterruptedException
-     * @throws MarathonFileMissingException
-     * @throws MarathonFileInvalidException
+     * @throws IOException on IO issues
+     * @throws InterruptedException on complications reading file
+     * @throws MarathonFileMissingException when the Marathon config file is missing
+     * @throws MarathonFileInvalidException when the Marathon config is not a file
      * @see #read(String)
      */
     public abstract MarathonBuilder read()
@@ -140,9 +141,9 @@ public abstract class MarathonBuilder {
      *
      * @param filename File to write rendered JSON
      * @return This builder
-     * @throws InterruptedException
-     * @throws MarathonFileInvalidException
-     * @throws IOException
+     * @throws InterruptedException when issues encountered with filesystem
+     * @throws MarathonFileInvalidException when Marathon config file is not a file
+     * @throws IOException on IO issues
      */
     public abstract MarathonBuilder toFile(final String filename)
             throws InterruptedException, MarathonFileInvalidException, IOException;
@@ -152,9 +153,9 @@ public abstract class MarathonBuilder {
      * (marathon-rendered-${BUILD_NUMBER}.json).
      *
      * @return This builder
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws MarathonFileInvalidException
+     * @throws InterruptedException when issues encountered with filesystem
+     * @throws IOException on IO issues
+     * @throws MarathonFileInvalidException when Marathon config file is not a file
      * @see #toFile(String)
      */
     public abstract MarathonBuilder toFile()

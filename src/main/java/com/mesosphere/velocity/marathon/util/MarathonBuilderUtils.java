@@ -55,6 +55,7 @@ public class MarathonBuilderUtils {
     /**
      * Get the credentials identified by the given id from the Jenkins credential store.
      *
+     * @param <T>              credential type
      * @param credentialsId    The id for the credentials
      * @param credentialsClass The class of credentials to return
      * @return Jenkins credentials
