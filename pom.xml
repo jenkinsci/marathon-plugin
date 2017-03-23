@@ -120,6 +120,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- so tests can use "writeFile" and "sh" in scripts -->
+        <dependency>
+            <groupId>org.jenkins-ci.plugins.workflow</groupId>
+            <artifactId>workflow-basic-steps</artifactId>
+            <version>${pipeline.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
