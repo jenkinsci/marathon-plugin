@@ -162,7 +162,8 @@ public class MarathonRecorderTest {
 
         // verify that each root field is present in the received request
         for (Object key : payloadJson.keySet()) {
-            assertTrue("JSON is missing field: " + key, requestJson.containsKey(key));
+            final String keyStr = (String) key;
+            assertTrue(String.format("JSON is missing field: %s", keyStr), requestJson.containsKey(keyStr));
         }
     }
 
