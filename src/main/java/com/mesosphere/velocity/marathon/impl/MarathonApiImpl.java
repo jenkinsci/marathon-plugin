@@ -18,6 +18,7 @@ import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
@@ -25,6 +26,7 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.LaxRedirectStrategy;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
@@ -50,6 +52,7 @@ public class MarathonApiImpl implements MarathonApi {
     private final ContentType contentType;
     private final HttpClientBuilder client;
     private final HttpClientContext context;
+    private final RedirectStrategy redirectStrategy = new LaxRedirectStrategy();
     private Header authorizationHeader;
 
     private MarathonApiImpl(String baseUrl) {
@@ -90,7 +93,7 @@ public class MarathonApiImpl implements MarathonApi {
 
         CloseableHttpResponse httpResponse = null;
         try {
-            httpResponse = client.build().execute(request, context);
+            httpResponse = client.setRedirectStrategy(redirectStrategy).build().execute(request, context);
             int statusCode = httpResponse.getStatusLine().getStatusCode();
             if (statusCode >= 400 && statusCode < 600) {
                 final String message = String.format("%s%n%s", httpResponse.getStatusLine().getReasonPhrase(),
