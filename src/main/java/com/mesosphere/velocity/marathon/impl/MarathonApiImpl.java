@@ -20,7 +20,6 @@ import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -53,12 +52,7 @@ public class MarathonApiImpl implements MarathonApi {
     private final ContentType contentType;
     private final HttpClientBuilder client;
     private final HttpClientContext context;
-    private final RedirectStrategy redirectStrategy = new LaxRedirectStrategy() {
-        @Override
-        protected boolean isRedirectable(String method) {
-            return super.isRedirectable(method) || (HttpPut.METHOD_NAME.equals(method));
-        }
-    };
+    private final RedirectStrategy redirectStrategy = new LaxRedirectStrategy();
     private Header authorizationHeader;
 
     private MarathonApiImpl(String baseUrl) {
