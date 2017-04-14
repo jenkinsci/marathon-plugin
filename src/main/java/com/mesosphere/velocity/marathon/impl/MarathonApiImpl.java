@@ -9,16 +9,17 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import com.mesosphere.velocity.marathon.interfaces.MarathonApi;
+import com.mesosphere.velocity.marathon.model.DeploymentResponse;
 import com.mesosphere.velocity.marathon.util.MarathonApiConstant;
 import hudson.remoting.Base64;
 import mesosphere.marathon.client.utils.MarathonException;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
@@ -26,7 +27,6 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.LaxRedirectStrategy;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
 /**
@@ -52,7 +53,7 @@ public class MarathonApiImpl implements MarathonApi {
     private final ContentType contentType;
     private final HttpClientBuilder client;
     private final HttpClientContext context;
-    private final RedirectStrategy redirectStrategy = new LaxRedirectStrategy();
+    private final Gson gson = new Gson();
     private Header authorizationHeader;
 
     private MarathonApiImpl(String baseUrl) {
@@ -72,7 +73,7 @@ public class MarathonApiImpl implements MarathonApi {
     }
 
     @Override
-    public String update(String appId, String jsonPayload, boolean forceUpdate) throws MarathonException {
+    public Optional<DeploymentResponse> update(String appId, String jsonPayload, boolean forceUpdate) throws MarathonException {
         final HttpEntity stringPayload = new StringEntity(jsonPayload, this.contentType);
         String url;
         try {
@@ -93,13 +94,14 @@ public class MarathonApiImpl implements MarathonApi {
 
         CloseableHttpResponse httpResponse = null;
         try {
-            httpResponse = client.setRedirectStrategy(redirectStrategy).build().execute(request, context);
+            httpResponse = client.build().execute(request, context);
             int statusCode = httpResponse.getStatusLine().getStatusCode();
-            if (statusCode >= 400 && statusCode < 600) {
+            if (statusCode >= 300 && statusCode < 600) {
                 final String message = String.format("%s%n%s", httpResponse.getStatusLine().getReasonPhrase(),
                                                      prettyPrintJson(EntityUtils.toString(httpResponse.getEntity())));
                 throw new MarathonException(statusCode, message);
             }
+            return Optional.of(gson.fromJson(IOUtils.toString(httpResponse.getEntity().getContent(), StandardCharsets.UTF_8), DeploymentResponse.class));
         } catch (IOException e) {
             final String errorMessage = "Failed to execute web request to login endpoint.\n" + e.getMessage();
             LOGGER.warning(errorMessage);
@@ -110,11 +112,10 @@ public class MarathonApiImpl implements MarathonApi {
                 try {
                     httpResponse.close();
                 }
-                catch (IOException e) {
+                catch (IOException ignored) {
                 }
             }
         }
-        return null;
     }
 
     private void setAuthorizationHeader(final Credentials credentials) {

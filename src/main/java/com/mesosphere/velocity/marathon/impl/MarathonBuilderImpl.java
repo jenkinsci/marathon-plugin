@@ -1,7 +1,5 @@
 package com.mesosphere.velocity.marathon.impl;
 
-import com.cloudbees.plugins.credentials.Credentials;
-import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.DeployConfig;
@@ -13,16 +11,11 @@ import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.Util;
-import mesosphere.marathon.client.Marathon;
-import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
 import mesosphere.marathon.client.utils.MarathonException;
 import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONArray;
-import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
 import java.util.List;
@@ -142,76 +135,15 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * Construct a Marathon client based on the provided credentialsId and execute an update for ths configuration's
      * Marathon application.
      *
-     * @param credentialsId A string ID for a credential within Jenkin's Credential store
      * @throws MarathonException thrown if the Marathon service has an error
      */
     @Override
-    protected void doUpdate(final String credentialsId) throws MarathonException {
-        final Credentials credentials = MarathonBuilderUtils.getJenkinsCredentials(credentialsId, Credentials.class);
-
-        Marathon client;
-        if (credentials instanceof UsernamePasswordCredentials) {
-            client = getMarathonClient((UsernamePasswordCredentials) credentials);
-        } else if (credentials instanceof StringCredentials) {
-            client = getMarathonClient((StringCredentials) credentials);
-        } else {
-            client = getMarathonClient();
-        }
-
-        if (client != null) {
-            client.updateApp(app.getId(), app, config.getForceUpdate());
+    protected void doUpdate() throws MarathonException {
+        if (getMarathonClient() != null) {
+            getMarathonClient().updateApp(app.getId(), app, config.getForceUpdate());
         }
     }
 
-    /**
-     * Get a Marathon client with basic auth using the username and password within the provided credentials.
-     *
-     * @param credentials Username and password credentials
-     * @return Marathon client with basic authentication filled in
-     */
-    private Marathon getMarathonClient(UsernamePasswordCredentials credentials) {
-        return MarathonClient
-                .getInstanceWithBasicAuth(getURL(), credentials.getUsername(), credentials.getPassword().getPlainText());
-    }
-
-    /**
-     * Get a Marathon client with Authorization headers using the token within provided credentials. If the content of
-     * credentials is JSON, this will use the "jenkins_token" field; if the content is just a string, that will be
-     * used as the token value.
-     *
-     * @param credentials String credentials
-     * @return Marathon client with token in auth header
-     */
-    private Marathon getMarathonClient(StringCredentials credentials) {
-        String token;
-
-        try {
-            final JSONObject json = JSONObject.fromObject(credentials.getSecret().getPlainText());
-            if (json.has("jenkins_token")) {
-                token = json.getString("jenkins_token");
-            } else {
-                token = "";
-            }
-        } catch (JSONException jse) {
-            token = credentials.getSecret().getPlainText();
-        }
-
-        if (StringUtils.isNotEmpty(token)) {
-            return MarathonClient
-                    .getInstanceWithTokenAuth(getURL(), token);
-        }
-
-        return getMarathonClient();
-    }
-
-    /**
-     * Get a default Marathon client. This does not include any authentication headers.
-     *
-     * @return Marathon client without authentication mechanisms
-     */
-    private Marathon getMarathonClient() {
-        return MarathonClient.getInstance(getURL());
-    }
 
     private JSONObject setId() {
         if (config.getAppId() != null && config.getAppId().trim().length() > 0)
