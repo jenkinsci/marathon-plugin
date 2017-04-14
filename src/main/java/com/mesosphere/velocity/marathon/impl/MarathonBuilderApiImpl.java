@@ -199,7 +199,7 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
         }
     }
 
-    private void waitForDeployment(DeploymentResponse deploymentResponse) {
+    private void waitForDeployment(final DeploymentResponse deploymentResponse) {
         if (this.deployConfig.getWaitForDeploy()) {
             log("Waiting for Deployment to complete for: " + deploymentResponse.getDeploymentId());
             try {
@@ -213,11 +213,9 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
                         if (deploymentResponse.getDeploymentId().equals(deployment.getId())) {
                             log("Deployment not complete yet: " + deploymentResponse.getDeploymentId());
                             completeDeployment = false;
+                            Thread.sleep(WAIT_FOR_DEPLOY_INTERVAL);
                             break;
                         }
-                    }
-                    if (!completeDeployment) {
-                        Thread.sleep(WAIT_FOR_DEPLOY_INTERVAL);
                     }
                 }
                 if (!completeDeployment) {
