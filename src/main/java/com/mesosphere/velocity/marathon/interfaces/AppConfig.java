@@ -2,6 +2,7 @@ package com.mesosphere.velocity.marathon.interfaces;
 
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.fields.MarathonVars;
 
 import java.util.List;
 
@@ -65,4 +66,11 @@ public interface AppConfig {
      * @return list of labels
      */
     List<MarathonLabel> getLabels();
+
+    /**
+     * Return a list of environment variables.
+     *
+     * @return list of environment variables
+     */
+    List<MarathonVars> getEnv();
 }
