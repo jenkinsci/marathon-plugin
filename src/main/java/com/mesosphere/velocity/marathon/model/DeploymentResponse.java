@@ -22,11 +22,11 @@ public class DeploymentResponse {
     private String deploymentId;
 
     public Date getVersion() {
-        return version;
+        return new Date(version.getTime());
     }
 
     public void setVersion(Date version) {
-        this.version = version;
+        this.version = new Date(version.getTime());
     }
 
     public void setVersion(String version) {
