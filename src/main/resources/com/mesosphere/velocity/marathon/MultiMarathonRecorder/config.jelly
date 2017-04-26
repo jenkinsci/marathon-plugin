@@ -6,9 +6,6 @@
     <f:entry title="${%Credentials}" field="credentialsId">
         <c:select/>
     </f:entry>
-    <f:entry title="${%Inject Jenkins Variables}" field="injectJenkinsVariables">
-        <f:checkbox default="true"/>
-    </f:entry>
     <f:entry title="${%Deployments}" field="deployments">
         <f:repeatable add="Add Deployment" field="deployments" noAddButton="false" minimum="1">
             <j:set var="instance" value="${instance.descriptor != descriptor ? null : instance}"/><!-- work around until 1.382 -->

@@ -1,21 +1,25 @@
 package com.mesosphere.velocity.marathon.impl;
 
-import com.cloudbees.plugins.credentials.Credentials;
+import com.google.common.base.Optional;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.DeployConfig;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonApi;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
+import com.mesosphere.velocity.marathon.model.DeploymentResponse;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.Util;
+import mesosphere.marathon.client.model.v2.Deployment;
 import mesosphere.marathon.client.utils.MarathonException;
 import net.sf.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;
+import java.text.DateFormat;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -30,23 +34,22 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
     private static final String JENKINS_BUILD_NAME_VARIABLE = "JENKINS_BUILD_NUMBER";
     private static final String JENKINS_JOB_NAME_VARIABLE = "JENKINS_JOB_NAME";
     private static final String JENKINS_GIT_COMMIT_VARIABLE = "JENKINS_GIT_COMMIT";
+    private static final long WAIT_FOR_DEPLOY_INTERVAL = 10 * 1000;
     private DeployConfig deployConfig;
     private JSONObject json;
     private FilePath workspace;
-    private boolean injectJenkinsVariables;
 
     public MarathonBuilderApiImpl() {
-        this(new EnvVars(), null, null, true);
+        this(new EnvVars(), null, null);
     }
 
-    public MarathonBuilderApiImpl(final EnvVars envVars, final String url, final String credentialId, final boolean injectJenkinsVariables) {
+    public MarathonBuilderApiImpl(final EnvVars envVars, final String url, final String credentialId) {
         super(envVars, url, credentialId);
-        this.injectJenkinsVariables = injectJenkinsVariables;
     }
 
     @Override
     public MarathonBuilder read(final String filename) throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
-        final String   realFilename = StringUtils.isNotBlank(filename) ? Util.replaceMacro(filename, getEnvVars()): MarathonBuilderUtils.MARATHON_JSON;
+        final String realFilename = StringUtils.isNotBlank(filename) ? Util.replaceMacro(filename, getEnvVars()) : MarathonBuilderUtils.MARATHON_JSON;
         if (realFilename == null) {
             throw new MarathonFileMissingException(filename);
         }
@@ -105,10 +108,11 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder toFile(final String filename) throws InterruptedException, IOException, MarathonFileInvalidException {
-        final String   realFilename     = filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON;
+        final String realFilename = filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON;
         final FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, getEnvVars()));
-        if (renderedFilepath.exists() && renderedFilepath.isDirectory())
+        if (renderedFilepath.exists() && renderedFilepath.isDirectory()) {
             throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory; not overwriting.");
+        }
 
         renderedFilepath.write(json.toString(), null);
         return this;
@@ -123,16 +127,21 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
      * Construct a MarathonAPI based on the provided credentialsId and execute an update for ths configuration's
      * Marathon application.
      *
-     * @param credentialsId A string ID for a credential within Jenkin's Credential store
-     * @throws MarathonException thrown if the Marathon service has an error
+     * @throws MarathonException
+     *     thrown if the Marathon service has an error
      */
     @Override
-    protected void doUpdate(final String credentialsId) throws MarathonException {
-        final Credentials credentials = MarathonBuilderUtils.getJenkinsCredentials(credentialsId, Credentials.class);
+    protected void doUpdate() throws MarathonException {
         final String appId = json.getString(MarathonBuilderUtils.JSON_ID_FIELD);
 
-        MarathonApi marathonApi = new MarathonApiImpl(getURL(), credentials);
-        marathonApi.update(appId, this.json.toString(), deployConfig.getForceUpdate());
+        MarathonApi marathonApi = new MarathonApiImpl(getURL(), getCredentials());
+        Optional<DeploymentResponse> responseOptional = marathonApi.update(appId, this.json.toString(), deployConfig.getForceUpdate());
+        if (responseOptional.isPresent()) {
+            final String appIdPrefix = appId.toUpperCase().replace('/', '_').replace('-', '_');
+            getEnvVars().put(appIdPrefix + "_VERSION", DateFormat.getDateTimeInstance().format(responseOptional.get().getVersion()));
+            getEnvVars().put(appIdPrefix + "_DEPLOY_ID", responseOptional.get().getDeploymentId());
+            waitForDeployment(responseOptional.get());
+        }
     }
 
     private void replaceValuesInJson() {
@@ -171,7 +180,7 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
     }
 
     private void injectEnvironmentVariables() {
-        if (this.json != null && this.injectJenkinsVariables) {
+        if (this.json != null && this.deployConfig.getInjectJenkinsVariables()) {
             // Verify that container exists in the JSON
             if (!this.json.has(MarathonBuilderUtils.JSON_ENV_FIELD)) {
                 this.json.element(MarathonBuilderUtils.JSON_ENV_FIELD, new JSONObject());
@@ -187,6 +196,40 @@ public class MarathonBuilderApiImpl extends MarathonBuilder {
             final String gitCommit = replaceMacro("${GIT_COMMIT}");
             env.put(JENKINS_GIT_COMMIT_VARIABLE, gitCommit);
             log(String.format(INJECT_VARIABLE_TEMPLATE, JENKINS_GIT_COMMIT_VARIABLE, gitCommit));
+        }
+    }
+
+    private void waitForDeployment(final DeploymentResponse deploymentResponse) {
+        if (this.deployConfig.getWaitForDeploy()) {
+            log("Waiting for Deployment to complete for: " + deploymentResponse.getDeploymentId());
+            try {
+                boolean completeDeployment = false;
+                long startTime = System.currentTimeMillis();
+                while (!completeDeployment && (System.currentTimeMillis() - startTime) < this.deployConfig.getTimeoutMillis()) {
+                    List<Deployment> deployments = getMarathonClient().getDeployments();
+                    completeDeployment = true;
+                    for (Deployment deployment : deployments) {
+                        // See if we have found our deployment
+                        if (deploymentResponse.getDeploymentId().equals(deployment.getId())) {
+                            log("Deployment not complete yet: " + deploymentResponse.getDeploymentId());
+                            completeDeployment = false;
+                            Thread.sleep(WAIT_FOR_DEPLOY_INTERVAL);
+                            break;
+                        }
+                    }
+                }
+                if (!completeDeployment) {
+                    log("Deployment timed out for: " + deploymentResponse.getDeploymentId());
+                } else {
+                    log("Deployment complete for: " + deploymentResponse.getDeploymentId());
+                }
+            }
+            catch (MarathonException e) {
+                LOGGER.severe("Error occurred while getting the list of deployments: " + e.getMessage());
+            }
+            catch (InterruptedException ie) {
+                LOGGER.severe("Thread interruption while waiting for deployment completion: " + ie.getMessage());
+            }
         }
     }
 }

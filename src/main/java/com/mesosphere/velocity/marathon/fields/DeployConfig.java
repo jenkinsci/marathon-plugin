@@ -19,8 +19,11 @@ public class DeployConfig extends AbstractDescribableImpl<DeployConfig> {
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
     private final String filename;
     private boolean forceUpdate;
+    private boolean injectJenkinsVariables;
+    private boolean waitForDeploy;
     private String appId;
     private String dockerImage;
+    private long timeoutMillis = 15 * 60 * 1000; // Default to 15 minutes
 
     @DataBoundConstructor
     public DeployConfig(final String filename) {
@@ -60,6 +63,36 @@ public class DeployConfig extends AbstractDescribableImpl<DeployConfig> {
     @DataBoundSetter
     public void setDockerImage(@Nonnull final String dockerImage) {
         this.dockerImage = dockerImage;
+    }
+
+    public boolean isInjectJenkinsVariables() {
+        return injectJenkinsVariables;
+    }
+
+    public boolean getInjectJenkinsVariables() {
+        return injectJenkinsVariables;
+    }
+
+    @DataBoundSetter
+    public void setInjectJenkinsVariables(boolean injectJenkinsVariables) {
+        this.injectJenkinsVariables = injectJenkinsVariables;
+    }
+
+    public boolean isWaitForDeploy() {
+        return waitForDeploy;
+    }
+
+    public boolean getWaitForDeploy() {
+        return waitForDeploy;
+    }
+
+    @DataBoundSetter
+    public void setWaitForDeploy(boolean waitForDeploy) {
+        this.waitForDeploy = waitForDeploy;
+    }
+
+    public long getTimeoutMillis() {
+        return timeoutMillis;
     }
 
     @Override
