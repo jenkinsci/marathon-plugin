@@ -16,7 +16,7 @@ public class MarathonBuilderUtils {
     /**
      * Default Marathon Application Definition file.
      */
-    public static final String MARATHON_JSON           = "marathon.json";
+    public static final String MARATHON_JSON          = "marathon.json";
     /**
      * Default filepath for the rendered JSON that was sent to the Marathon instance.
      */
@@ -91,6 +91,7 @@ public class MarathonBuilderUtils {
     /**
      * Get the credentials identified by the given id from the Jenkins credential store.
      *
+     * @param <T>              credential type
      * @param credentialsId    The id for the credentials
      * @param credentialsClass The class of credentials to return
      * @return Jenkins credentials

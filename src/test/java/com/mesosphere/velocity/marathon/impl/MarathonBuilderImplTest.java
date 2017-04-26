@@ -1,13 +1,12 @@
 package com.mesosphere.velocity.marathon.impl;
 
+import com.google.gson.JsonSyntaxException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
 import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
-import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import hudson.EnvVars;
 import hudson.FilePath;
-import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.junit.Before;
 import org.junit.Rule;
@@ -33,8 +32,8 @@ public class MarathonBuilderImplTest {
     @Rule
     public final ExpectedException exception = ExpectedException.none();
     @Mock
-    private AppConfig       appConfig;
-    private MarathonBuilder builder;
+    private AppConfig           appConfig;
+    private MarathonBuilderImpl builder;
 
     @Before
     public void setUp() {
@@ -118,38 +117,46 @@ public class MarathonBuilderImplTest {
                 expectedJson.getString("id"), builder.getJson().getString("id"));
     }
 
+    /**
+     * Test that a JSON configuration without any URIs does not throw an error.
+     */
     @Test
     public void testNoUris() {
         final String     jsonString = "{\"id\": \"testid\"}";
         final JSONObject json       = JSONObject.fromObject(jsonString);
 
-        builder = new MarathonBuilderImpl(new EnvVars(), appConfig).setJson(json).build();
-        assertNull(builder.getJson().get("uris"));
+        builder = (MarathonBuilderImpl) new MarathonBuilderImpl(new EnvVars(), appConfig).setJson(json).build();
+        assertNull("URIs should be null if none were in the JSON config", builder.getApp().getUris());
 
         when(appConfig.getUris()).thenReturn(Collections.singletonList(
                 new MarathonUri("http://example.com/artifact")));
-        builder = builder.build();
-        final JSONArray uris = builder.getJson().getJSONArray("uris");
-        assertEquals(1, uris.size());
-        assertEquals("http://example.com/artifact", uris.get(0));
+        builder = (MarathonBuilderImpl) builder.build();
+        assertEquals(1, builder.getApp().getUris().size());
+        assertEquals("http://example.com/artifact", builder.getApp().getUris().iterator().next());
     }
 
+    /**
+     * Test that existing URIs are not deleted or overwritten on subsequence builds.
+     */
     @Test
     public void testExistingUris() {
         final String     jsonString = "{\"id\": \"testid\", \"uris\": [\"http://example.com/artifact\"]}";
         final JSONObject json       = JSONObject.fromObject(jsonString);
 
-        builder = new MarathonBuilderImpl(new EnvVars(), appConfig).setJson(json).build();
+        builder = (MarathonBuilderImpl) new MarathonBuilderImpl(new EnvVars(), appConfig).setJson(json).build();
         assertEquals(1, builder.getJson().getJSONArray("uris").size());
-
-        final String item = builder.getJson().getJSONArray("uris").getString(0);
-        assertEquals("http://example.com/artifact", item);
+        assertEquals(1, builder.getApp().getUris().size());
+        assertEquals("http://example.com/artifact", builder.getApp().getUris().iterator().next());
 
         when(appConfig.getUris()).thenReturn(Collections.singletonList(new MarathonUri("http://example.com/valid_artifact")));
-        builder = builder.build();
-        assertEquals(2, builder.getJson().getJSONArray("uris").size());
+        builder = (MarathonBuilderImpl) builder.build();
+        assertEquals(2, builder.getApp().getUris().size());
     }
 
+    /**
+     * Test that an invalid "uris" format causes a JSON exception. The "uris" field should
+     * be an array.
+     */
     @Test
     public void testInvalidTypeUris() {
         final String     jsonString = "{\"id\": \"testid\", \"uris\": \"http://example.com/artifact\"}";
@@ -157,11 +164,12 @@ public class MarathonBuilderImplTest {
 
         when(appConfig.getUris()).thenReturn(Collections.singletonList(new MarathonUri("http://example.com/valid_artifact")));
 
-        builder = new MarathonBuilderImpl(new EnvVars(), appConfig).setJson(json).build();
-        final JSONArray uris = builder.getJson().getJSONArray("uris");
-        assertEquals(1, uris.size());
-        final String item = uris.getString(0);
-        assertEquals("http://example.com/valid_artifact", item);
+        try {
+            builder = (MarathonBuilderImpl) new MarathonBuilderImpl(new EnvVars(), appConfig).setJson(json).build();
+            assertTrue("Should throw json parse exception", false);
+        } catch (JsonSyntaxException jse) {
+            assertTrue(true);
+        }
     }
 
 }

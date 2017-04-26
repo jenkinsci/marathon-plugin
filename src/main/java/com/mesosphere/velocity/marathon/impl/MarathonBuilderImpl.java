@@ -7,6 +7,7 @@ import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.fields.DeployConfig;
 import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.fields.MarathonVars;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
@@ -16,9 +17,10 @@ import hudson.Util;
 import mesosphere.marathon.client.Marathon;
 import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
+import mesosphere.marathon.client.model.v2.Container;
+import mesosphere.marathon.client.model.v2.Docker;
 import mesosphere.marathon.client.utils.MarathonException;
 import mesosphere.marathon.client.utils.ModelUtils;
-import net.sf.json.JSONArray;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
@@ -30,10 +32,10 @@ import java.util.logging.Logger;
 
 public class MarathonBuilderImpl extends MarathonBuilder {
     private static final Logger LOGGER = Logger.getLogger(MarathonBuilderImpl.class.getName());
-    private AppConfig       config;
-    private JSONObject      json;
-    private App             app;
-    private FilePath        workspace;
+    private AppConfig  config;
+    private App app;
+    private JSONObject json;
+    private FilePath   workspace;
 
     public MarathonBuilderImpl() {
         this(new EnvVars(), null);
@@ -59,6 +61,10 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     public String getDocker() {
         return config.getDocker();
+    }
+
+    public App getApp() {
+        return app;
     }
 
     @Override
@@ -113,12 +119,14 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     @Override
     public MarathonBuilder build() {
+        this.app = ModelUtils.GSON.fromJson(json.toString(), App.class);
+
         setId();
         setDockerImage();
         setUris();
         setLabels();
+        setEnv();
 
-        this.app = ModelUtils.GSON.fromJson(json.toString(), App.class);
         return this;
     }
 
@@ -159,7 +167,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         }
 
         if (client != null) {
-            client.updateApp(app.getId(), app, config.getForceUpdate());
+            client.updateApp(this.app.getId(), this.app, config.getForceUpdate());
         }
     }
 
@@ -213,38 +221,33 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         return MarathonClient.getInstance(getURL());
     }
 
-    private JSONObject setId() {
-        if (config.getAppId() != null && config.getAppId().trim().length() > 0)
-            json.put(MarathonBuilderUtils.JSON_ID_FIELD, Util.replaceMacro(config.getAppId(), getEnvVars()));
-
-        return json;
+    private void setId() {
+        if (config.getAppId() != null && config.getAppId().trim().length() > 0) {
+            final String appId = Util.replaceMacro(config.getAppId(), getEnvVars());
+            if (appId != null && appId.trim().length() > 0) this.app.setId(appId);
+        }
     }
 
-    private JSONObject setDockerImage() {
+    private void setDockerImage() {
         if (config.getDocker() != null && config.getDocker().trim().length() > 0) {
-            //LOGGER.info("Docker");
-            // get container -> docker -> image
-            if (!json.has(MarathonBuilderUtils.JSON_CONTAINER_FIELD)) {
-                json.element(MarathonBuilderUtils.JSON_CONTAINER_FIELD,
-                        JSONObject.fromObject(MarathonBuilderUtils.JSON_EMPTY_CONTAINER));
+            final String imageName = Util.replaceMacro(config.getDocker(), getEnvVars());
+
+            if (imageName == null || imageName.trim().length() == 0) {
+                return;
             }
 
-            final JSONObject container = json.getJSONObject(MarathonBuilderUtils.JSON_CONTAINER_FIELD);
-
-            if (!container.has(MarathonBuilderUtils.JSON_DOCKER_FIELD)) {
-                container.element(MarathonBuilderUtils.JSON_DOCKER_FIELD, new JSONObject());
+            if (this.app.getContainer() == null) {
+                this.app.setContainer(new Container());
             }
 
-            container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD)
-                    .element(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FIELD,
-                            Util.replaceMacro(config.getDocker(), getEnvVars()));
+            if (this.app.getContainer().getDocker() == null) {
+                this.app.getContainer().setDocker(new Docker());
+            }
 
-            container.getJSONObject(MarathonBuilderUtils.JSON_DOCKER_FIELD)
-                    .element(MarathonBuilderUtils.JSON_DOCKER_IMAGE_FORCE_PULL,
-                            config.getDockerForcePull());
+            this.app.getContainer().setType("DOCKER");
+            this.app.getContainer().getDocker().setImage(imageName);
+            this.app.getContainer().getDocker().setForcePullImage(config.getDockerForcePull());
         }
-
-        return json;
     }
 
     /**
@@ -252,30 +255,35 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * the Jenkins UI. This handles transforming Environment Variables
      * to their actual values.
      */
-    private JSONObject setUris() {
-        if (config.getUris().size() > 0) {
-            final boolean hasUris = json.get(MarathonBuilderUtils.JSON_URI_FIELD) instanceof JSONArray;
-
-            // create the "uris" field if one is not there or it is of the wrong type.
-            if (!hasUris)
-                json.element(MarathonBuilderUtils.JSON_URI_FIELD, new JSONArray());
-
+    private void setUris() {
+        if (config.getUris() != null && config.getUris().size() > 0) {
             for (MarathonUri uri : config.getUris()) {
-                json.accumulate(MarathonBuilderUtils.JSON_URI_FIELD, Util.replaceMacro(uri.getUri(), getEnvVars()));
+                final String replacedUri = Util.replaceMacro(uri.getUri(), getEnvVars());
+                this.app.addUri(replacedUri);
             }
         }
-
-        return json;
     }
 
-    private JSONObject setLabels() {
-        if (!json.has("labels"))
-            json.element("labels", new JSONObject());
+    private void setLabels() {
+        if (config.getLabels() != null && config.getLabels().size() > 0) {
+            for (MarathonLabel label : config.getLabels()) {
+                final String labelName  = Util.replaceMacro(label.getName(), getEnvVars());
+                final String labelValue = Util.replaceMacro(label.getValue(), getEnvVars());
 
-        final JSONObject labelObject = json.getJSONObject("labels");
-        for (MarathonLabel label : config.getLabels()) {
-            labelObject.element(Util.replaceMacro(label.getName(), getEnvVars()),
-                    Util.replaceMacro(label.getValue(), getEnvVars()));
+                this.app.addLabel(labelName, labelValue);
+            }
+        }
+    }
+
+
+    private JSONObject setEnv() {
+        if (!json.has("env"))
+            json.element("env", new JSONObject());
+
+        final JSONObject envObject = json.getJSONObject("env");
+        for (MarathonVars var : config.getEnv()) {
+            envObject.element(Util.replaceMacro(var.getName(), getEnvVars()),
+                    Util.replaceMacro(var.getValue(), getEnvVars()));
         }
 
         return json;
