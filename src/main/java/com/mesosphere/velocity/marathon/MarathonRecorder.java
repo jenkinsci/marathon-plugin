@@ -122,8 +122,8 @@ public class MarathonRecorder extends Recorder implements AppConfig {
 
         if (buildSucceed) {
             try {
-                final MarathonBuilder builder = MarathonBuilder.getBuilder(this)
-                        .setEnvVars(envVars).setWorkspace(build.getWorkspace())
+                final MarathonBuilder builder = MarathonBuilder.getBuilder(envVars, this)
+                        .setWorkspace(build.getWorkspace())
                         .read(this.filename)
                         .build().toFile();
 

@@ -1,0 +1,23 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:entry title="${%Definition File}" field="filename">
+        <f:textbox/>
+    </f:entry>
+    <f:entry title="${%Force Update}" field="forceUpdate">
+        <f:checkbox/>
+    </f:entry>
+    <f:entry title="${%Inject Jenkins Variables}" field="injectJenkinsVariables">
+        <f:checkbox default="true"/>
+    </f:entry>
+    <f:entry title="${%Wait for Deployment Completion}" field="waitForDeploy">
+        <f:checkbox default="false"/>
+    </f:entry>
+    <f:advanced>
+        <f:entry title="${%Application Id}" field="appId">
+            <f:textbox/>
+        </f:entry>
+        <f:entry title="${%Docker Image}" field="dockerImage">
+            <f:textbox/>
+        </f:entry>
+    </f:advanced>
+</j:jelly>

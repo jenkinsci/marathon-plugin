@@ -1,0 +1,14 @@
+<div>
+    <p>
+        This parameter decides whether to inject a few Jenkins Environment Variables into the deployment as Environment Variables.
+    </p>
+    <p>
+        If this is set to <code>true</code> (checked), then the following Environment Variables will be injected:
+        <ul>
+            <li>JENKINS_BUILD_NUMBER = ${BUILD_NUMBER}</li>
+            <li>JENKINS_JOB_NAME = ${JOB_NAME}</li>
+            <li>JENKINS_GIT_COMMIT = ${GIT_COMMIT}</li>
+        </ul>
+        If this is set to <code>false</code> (unchecked), then none of these variables will be injected.
+    </p>
+</div>

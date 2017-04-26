@@ -1,13 +1,18 @@
 package com.mesosphere.velocity.marathon;
 
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
 import com.mesosphere.velocity.marathon.fields.MarathonVars;
+import com.mesosphere.velocity.marathon.interfaces.AppConfig;
+import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
+import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
+import hudson.EnvVars;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.model.Item;
+import hudson.model.TaskListener;
 import hudson.util.FormValidation;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.annotation.Nonnull;
-import javax.inject.Inject;
-
+import hudson.util.ListBoxModel;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
@@ -15,20 +20,12 @@ import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-
-import com.mesosphere.velocity.marathon.fields.MarathonLabel;
-import com.mesosphere.velocity.marathon.fields.MarathonUri;
-import com.mesosphere.velocity.marathon.interfaces.AppConfig;
-import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
-import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
-
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.model.Item;
-import hudson.model.TaskListener;
-import hudson.util.ListBoxModel;
 import org.kohsuke.stapler.QueryParameter;
+
+import javax.annotation.Nonnull;
+import javax.inject.Inject;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private final String              url;
@@ -246,8 +243,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
             }
 
             MarathonBuilder
-                    .getBuilder(step)
-                    .setEnvVars(envVars)
+                    .getBuilder(envVars, step)
                     .setWorkspace(ws)
                     .read(step.filename)
                     .build()
