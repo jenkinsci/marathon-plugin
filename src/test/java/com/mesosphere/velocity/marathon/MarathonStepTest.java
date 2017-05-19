@@ -79,6 +79,30 @@ public class MarathonStepTest {
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
     }
 
+    @Test
+    public void testMultipleDeployments() throws Exception {
+        TestUtils.enqueueJsonResponse(httpServer, "{\"version\": \"one\", \"deploymentId\": \"myapp\"}");
+        TestUtils.enqueueJsonResponse(httpServer, "{\"version\": \"one\", \"deploymentId\": \"myapp2\"}");
+
+        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
+
+        final String groovyScript = "node { " +
+                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '{\"id\": \"testing1\", \"cmd\": \"sleep 60\"}');\n" +
+                "writeFile(encoding: 'utf-8', file: 'marathon2.json', text: '{\"id\": \"testing2\", \"cmd\": \"sleep 60\"}');\n" +
+                "marathon(url: '" + TestUtils.getHttpAddresss(httpServer) + "'); " +
+                "marathon(filename: 'marathon2.json', url: '" + TestUtils.getHttpAddresss(httpServer) + "'); " +
+                "}";
+
+        job.setDefinition(new CpsFlowDefinition(groovyScript, true));
+        WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
+        assertEquals("Two requests should be made", 2, httpServer.getRequestCount());
+
+        RecordedRequest request1 = httpServer.takeRequest();
+        RecordedRequest request2 = httpServer.takeRequest();
+        assertEquals("testing1", JSONObject.fromObject(request1.getBody().readUtf8()).getString("id"));
+        assertEquals("testing2", JSONObject.fromObject(request2.getBody().readUtf8()).getString("id"));
+    }
+
     /**
      * Test that 409 triggers retries.
      *
@@ -94,9 +118,9 @@ public class MarathonStepTest {
 
         job.setDefinition(new CpsFlowDefinition(generateSimpleScript(), true));
         WorkflowRun run = j.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(1).get());
+        assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
         j.assertLogContains("Client Error", run);
         j.assertLogContains("http status: 409", run);
-        assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
     }
 
     /**

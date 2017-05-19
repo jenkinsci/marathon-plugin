@@ -8,6 +8,22 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
+import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.interfaces.AppConfig;
+import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
+import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
+import hudson.EnvVars;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.model.Item;
+import hudson.model.Result;
+import hudson.model.Run;
+import hudson.model.TaskListener;
+import hudson.util.ListBoxModel;
+import mesosphere.marathon.client.MarathonException;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
@@ -15,19 +31,6 @@ import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-
-import com.mesosphere.velocity.marathon.fields.MarathonLabel;
-import com.mesosphere.velocity.marathon.fields.MarathonUri;
-import com.mesosphere.velocity.marathon.interfaces.AppConfig;
-import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
-import com.mesosphere.velocity.marathon.util.MarathonBuilderUtils;
-
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.model.Item;
-import hudson.model.TaskListener;
-import hudson.util.ListBoxModel;
 import org.kohsuke.stapler.QueryParameter;
 
 public class MarathonStep extends AbstractStepImpl implements AppConfig {
@@ -128,13 +131,13 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setDocker(final String docker) {
-        this.docker = docker;
+    public void setDockerForcePull(final boolean dockerForcePull) {
+        this.dockerForcePull = dockerForcePull;
     }
 
     @DataBoundSetter
-    public void setDockerForcePull(final boolean dockerForcePull) {
-        this.dockerForcePull = dockerForcePull;
+    public void setDocker(final String docker) {
+        this.docker = docker;
     }
 
     /**
@@ -235,6 +238,8 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
         private transient FilePath     ws;
         @StepContextParameter
         private transient EnvVars      envVars;
+        @StepContextParameter
+        private transient Run          run;
         @Inject
         private transient MarathonStep step;
 
@@ -245,14 +250,21 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
                 step.setId(step.getAppid());
             }
 
-            MarathonBuilder
-                    .getBuilder(step)
-                    .setEnvVars(envVars)
-                    .setWorkspace(ws)
-                    .read(step.filename)
-                    .build()
-                    .toFile()
-                    .update();
+            try {
+                MarathonBuilder
+                        .getBuilder(step)
+                        .setEnvVars(envVars)
+                        .setWorkspace(ws)
+                        .read(step.filename)
+                        .build()
+                        .toFile()
+                        .update();
+            } catch (MarathonException | MarathonFileInvalidException | MarathonFileMissingException me) {
+                final String errorMsg = String.format("[Marathon] %s", me.getMessage());
+                listener.error(errorMsg);
+                run.setResult(Result.FAILURE);
+            }
+
             return null;
         }
     }
