@@ -7,9 +7,9 @@ import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
 import com.mesosphere.velocity.marathon.impl.MarathonBuilderImpl;
 import hudson.EnvVars;
 import hudson.FilePath;
+import mesosphere.client.common.ModelUtils;
+import mesosphere.marathon.client.MarathonException;
 import mesosphere.marathon.client.model.v2.App;
-import mesosphere.marathon.client.utils.MarathonException;
-import mesosphere.marathon.client.utils.ModelUtils;
 import net.sf.json.JSONObject;
 
 import java.io.IOException;
