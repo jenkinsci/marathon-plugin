@@ -17,7 +17,6 @@ import org.jvnet.hudson.test.JenkinsRule;
 import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class MarathonStepTest {
     @Rule
@@ -69,7 +68,7 @@ public class MarathonStepTest {
         final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
 
         final String groovyScript = "node { " +
-                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '{\"id\": \"testing\", \"cmd\": \"sleep 60\"}');\n" +
+                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '''" + TestUtils.loadFixture("idonly.json") + "''');\n" +
                 "marathon(appid: 'testStepAppIdDeprecationMessage', url: '" + TestUtils.getHttpAddresss(httpServer) + "'); " +
                 "}";
 
@@ -80,7 +79,7 @@ public class MarathonStepTest {
     }
 
     @Test
-    public void testMultipleDeployments() throws Exception {
+    public void testStepMultipleDeployments() throws Exception {
         TestUtils.enqueueJsonResponse(httpServer, "{\"version\": \"one\", \"deploymentId\": \"myapp\"}");
         TestUtils.enqueueJsonResponse(httpServer, "{\"version\": \"one\", \"deploymentId\": \"myapp2\"}");
 
@@ -109,7 +108,7 @@ public class MarathonStepTest {
      * @throws Exception if something goes wrong
      */
     @Test
-    public void testMaxRetries() throws Exception {
+    public void testStepMaxRetries() throws Exception {
         TestUtils.enqueueFailureResponse(httpServer, 409);
         TestUtils.enqueueFailureResponse(httpServer, 409);
         TestUtils.enqueueFailureResponse(httpServer, 409);
@@ -130,7 +129,7 @@ public class MarathonStepTest {
      * @throws Exception when errors occur.
      */
     @Test
-    public void testRecorderNoFile() throws Exception {
+    public void testStepNoFile() throws Exception {
         TestUtils.enqueueFailureResponse(httpServer, 400);
 
         final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, "recordernofile");
@@ -144,20 +143,19 @@ public class MarathonStepTest {
     }
 
     /**
-     * Test a basic successful scenario. The marathin instance will return
+     * Test a basic successful scenario. The marathon instance will return
      * a 200 OK.
      *
      * @throws Exception if things go awry
      */
     @Test
-    public void testRecorderPass() throws Exception {
-        final String      payload  = "{\"id\":\"myapp\"}";
+    public void testStepPass() throws Exception {
         final WorkflowJob job      = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
         final String      response = "{\"version\": \"one\", \"deploymentId\": \"myapp\"}";
         TestUtils.enqueueJsonResponse(httpServer, response);
 
-        job.setDefinition(new CpsFlowDefinition(generateSimpleScript(payload, null), true));
-        WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
+        job.setDefinition(new CpsFlowDefinition(generateSimpleScript(), true));
+        j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
 
         RecordedRequest request        = httpServer.takeRequest();
@@ -173,71 +171,23 @@ public class MarathonStepTest {
      * @throws Exception when problems happen
      */
     @Test
-    public void testMarathonAllFields() throws Exception {
-        final String payload = "{\n" +
-                "  \"id\": \"test-app\",\n" +
-                "  \"container\": {\n" +
-                "    \"type\": \"DOCKER\",\n" +
-                "    \"docker\": {\n" +
-                "      \"image\": \"mesosphere/test-app:latest\",\n" +
-                "      \"forcePullImage\": true,\n" +
-                "      \"network\": \"BRIDGE\",\n" +
-                "      \"portMappings\": [\n" +
-                "        {\n" +
-                "          \"hostPort\": 80,\n" +
-                "          \"containerPort\": 80,\n" +
-                "          \"protocol\": \"tcp\"\n" +
-                "        }\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  },\n" +
-                "  \"acceptedResourceRoles\": [\n" +
-                "    \"agent_public\"\n" +
-                "  ],\n" +
-                "  \"labels\": {\n" +
-                "    \"lastChangedBy\": \"test@example.com\"\n" +
-                "  },\n" +
-                "  \"uris\": [ \"http://www.example.com/file\" ],\n" +
-                "  \"instances\": 1,\n" +
-                "  \"cpus\": 0.1,\n" +
-                "  \"mem\": 128,\n" +
-                "  \"healthChecks\": [\n" +
-                "    {\n" +
-                "      \"protocol\": \"TCP\",\n" +
-                "      \"gracePeriodSeconds\": 600,\n" +
-                "      \"intervalSeconds\": 30,\n" +
-                "      \"portIndex\": 0,\n" +
-                "      \"timeoutSeconds\": 10,\n" +
-                "      \"maxConsecutiveFailures\": 2\n" +
-                "    }\n" +
-                "  ],\n" +
-                "  \"upgradeStrategy\": {\n" +
-                "        \"minimumHealthCapacity\": 0\n" +
-                "  },\n" +
-                "  \"backoffSeconds\": 1,\n" +
-                "  \"backoffFactor\": 1.15,\n" +
-                "  \"maxLaunchDelaySeconds\": 3600\n" +
-                "}";
+    public void testStepAllFields() throws Exception {
+        final String payload     = TestUtils.loadFixture("allfields.json");
         final String responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
         TestUtils.enqueueJsonResponse(httpServer, responseStr);
 
         final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
         job.setDefinition(new CpsFlowDefinition(generateSimpleScript(payload, null), true));
-        WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
+        j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
 
         RecordedRequest request        = httpServer.takeRequest();
         final String    requestPayload = request.getBody().readUtf8();
         JSONObject      json           = JSONObject.fromObject(requestPayload);
-        assertEquals("Id was not set correctly", "test-app", json.getString("id"));
+        assertEquals("Id was not set correctly", "/foo", json.getString("id"));
 
         final JSONObject jsonPayload = JSONObject.fromObject(payload);
-
-        // verify that each root field is present in the received request
-        for (Object key : jsonPayload.keySet()) {
-            final String keyStr = (String) key;
-            assertTrue(String.format("JSON is missing field: %s", keyStr), json.containsKey(keyStr));
-        }
+        assertEquals("JSON objects are no the same", json, jsonPayload);
     }
 
     /**
@@ -247,7 +197,7 @@ public class MarathonStepTest {
      * @throws Exception in some special instances
      */
     @Test
-    public void testURLMacro() throws Exception {
+    public void testStepURLMacro() throws Exception {
         final String responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
         TestUtils.enqueueJsonResponse(httpServer, responseStr);
 
@@ -278,7 +228,7 @@ public class MarathonStepTest {
      *
      * @return pipeline groovy script
      */
-    private String generateSimpleScript() {
+    private String generateSimpleScript() throws IOException {
         return generateSimpleScript(null, null);
     }
 
@@ -289,13 +239,13 @@ public class MarathonStepTest {
      * @param id           marathon id for application (optional)
      * @return pipeline groovy script
      */
-    private String generateSimpleScript(final String fileContents, final String id) {
+    private String generateSimpleScript(final String fileContents, final String id) throws IOException {
         final String nodeScript = "node { \n" +
                 "writeFile(encoding: 'utf-8', file: 'marathon.json', text: \"\"\"%s\"\"\");\n" +
                 "marathon(%s url: '%s');\n" +
                 "}";
         return String.format(nodeScript,
-                fileContents == null ? "{\"id\": \"testing\", \"cmd\": \"sleep 60\"}" : fileContents,
+                fileContents == null ? TestUtils.loadFixture("idonly.json") : fileContents,
                 id == null ? "" : "id: '" + id + "', ",
                 TestUtils.getHttpAddresss(httpServer));
     }
