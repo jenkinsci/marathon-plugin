@@ -181,7 +181,7 @@ public class MarathonStepTest {
         assertEquals("Id was not set correctly", "/foo", json.getString("id"));
 
         final JSONObject jsonPayload = JSONObject.fromObject(payload);
-        assertEquals("JSON objects are no the same", json, jsonPayload);
+        assertEquals("JSON objects are not the same", json, jsonPayload);
     }
 
     /**
@@ -238,9 +238,9 @@ public class MarathonStepTest {
                 "writeFile(encoding: 'utf-8', file: 'marathon.json', text: \"\"\"%s\"\"\");\n" +
                 "marathon(%s url: '%s');\n" +
                 "}";
-        return String.format(nodeScript,
-                fileContents == null ? TestUtils.loadFixture("idonly.json") : fileContents,
-                id == null ? "" : "id: '" + id + "', ",
-                TestUtils.getHttpAddresss(httpServer));
+
+        final String contents = fileContents == null ? TestUtils.loadFixture("idonly.json") : fileContents;
+        final String idStr    = id == null ? "" : "id: '" + id + "', ";
+        return String.format(nodeScript, contents, idStr, TestUtils.getHttpAddresss(httpServer));
     }
 }
