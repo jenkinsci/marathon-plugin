@@ -1,0 +1,12 @@
+{
+  "id": "/foo",
+  "instances": 2,
+  "cmd": "sleep 1000",
+  "cpus": 0.1,
+  "disk": 0,
+  "mem": 16,
+  "uris": [
+    "https://foo.com/setup.py",
+    "https://foo.com/archive.zip"
+  ]
+}

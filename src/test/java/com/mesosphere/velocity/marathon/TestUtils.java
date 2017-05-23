@@ -2,6 +2,9 @@ package com.mesosphere.velocity.marathon;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.apache.commons.io.IOUtils;
+
+import java.io.IOException;
 
 public class TestUtils {
 
@@ -25,6 +28,17 @@ public class TestUtils {
      */
     public static void enqueueFailureResponse(final MockWebServer httpServer, final int statusCode) {
         httpServer.enqueue(new MockResponse().setResponseCode(statusCode));
+    }
+
+    /**
+     * Load a fixture file from the test/resources directory.
+     *
+     * @param name file name to load, including suffix
+     * @return content of file
+     * @throws IOException when any IO operations fail
+     */
+    public static String loadFixture(final String name) throws IOException {
+        return IOUtils.toString(TestUtils.class.getResourceAsStream(name), "UTF-8");
     }
 
 }
