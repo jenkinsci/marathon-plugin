@@ -10,7 +10,6 @@ import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
 import net.sf.json.JSONObject;
 import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,9 +47,7 @@ public class MarathonBuilderImplTest {
                 .setJson(json)
                 .build()
                 .update();
-        RecordedRequest  request     = httpServer.takeRequest();
-        final JSONObject requestJson = JSONObject.fromObject(request.getBody().readUtf8());
-        assertEquals("JSON objects are different", json, requestJson);
+        assertEquals("JSON objects are different", json, TestUtils.jsonFromRequest(httpServer));
     }
 
     /**

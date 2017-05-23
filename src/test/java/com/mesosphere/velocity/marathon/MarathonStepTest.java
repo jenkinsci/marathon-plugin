@@ -96,10 +96,10 @@ public class MarathonStepTest {
         WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
         assertEquals("Two requests should be made", 2, httpServer.getRequestCount());
 
-        RecordedRequest request1 = httpServer.takeRequest();
-        RecordedRequest request2 = httpServer.takeRequest();
-        assertEquals("testing1", JSONObject.fromObject(request1.getBody().readUtf8()).getString("id"));
-        assertEquals("testing2", JSONObject.fromObject(request2.getBody().readUtf8()).getString("id"));
+        final JSONObject request1 = TestUtils.jsonFromRequest(httpServer);
+        final JSONObject request2 = TestUtils.jsonFromRequest(httpServer);
+        assertEquals("testing1", request1.getString("id"));
+        assertEquals("testing2", request2.getString("id"));
     }
 
     /**
@@ -157,11 +157,7 @@ public class MarathonStepTest {
         job.setDefinition(new CpsFlowDefinition(generateSimpleScript(), true));
         j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
-
-        RecordedRequest request        = httpServer.takeRequest();
-        final String    requestPayload = request.getBody().readUtf8();
-        JSONObject      json           = JSONObject.fromObject(requestPayload);
-        assertEquals("Id was not set correctly", "myapp", json.getString("id"));
+        assertEquals("Id was not set correctly", "myapp", TestUtils.jsonFromRequest(httpServer).getString("id"));
     }
 
     /**
@@ -181,9 +177,7 @@ public class MarathonStepTest {
         j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
 
-        RecordedRequest request        = httpServer.takeRequest();
-        final String    requestPayload = request.getBody().readUtf8();
-        JSONObject      json           = JSONObject.fromObject(requestPayload);
+        JSONObject json = TestUtils.jsonFromRequest(httpServer);
         assertEquals("Id was not set correctly", "/foo", json.getString("id"));
 
         final JSONObject jsonPayload = JSONObject.fromObject(payload);
