@@ -26,7 +26,9 @@ import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public class MarathonBuilderImpl extends MarathonBuilder {
@@ -327,16 +329,16 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
 
-    private JSONObject setEnv() {
-        if (!json.has("env"))
-            json.element("env", new JSONObject());
+    private void setEnv() {
+        if (config.getEnv() != null && config.getEnv().size() > 0) {
+            Map<String, Object> envsToAdd = new HashMap<>(config.getEnv().size());
+            for (MarathonVars var : config.getEnv()) {
+                envsToAdd.put(
+                        Util.replaceMacro(var.getName(), envVars),
+                        Util.replaceMacro(var.getValue(), envVars));
+            }
 
-        final JSONObject envObject = json.getJSONObject("env");
-        for (MarathonVars var : config.getEnv()) {
-            envObject.element(Util.replaceMacro(var.getName(), envVars),
-                    Util.replaceMacro(var.getValue(), envVars));
+            getApp().setEnv(envsToAdd);
         }
-
-        return json;
     }
 }
