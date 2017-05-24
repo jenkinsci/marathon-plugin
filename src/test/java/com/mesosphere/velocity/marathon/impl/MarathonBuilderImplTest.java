@@ -35,6 +35,13 @@ public class MarathonBuilderImplTest {
         httpServer = null;
     }
 
+    /**
+     * Test that the content of the allfields fixture is properly sent to the remote server.
+     *
+     * @throws IOException             when IO issues occur
+     * @throws AuthenticationException when authentication fails
+     * @throws InterruptedException    when retries are interrupted
+     */
     @Test
     public void testAllMarathonFields() throws IOException, AuthenticationException, InterruptedException {
         MockConfig config  = new MockConfig();
@@ -47,7 +54,20 @@ public class MarathonBuilderImplTest {
                 .setJson(json)
                 .build()
                 .update();
-        assertEquals("JSON objects are different", json, TestUtils.jsonFromRequest(httpServer));
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        assertEquals("JSON objects are different", json, jsonRequest);
+
+        // secrets
+        final JSONObject secrets = jsonRequest.getJSONObject("secrets");
+        final JSONObject secret3 = secrets.getJSONObject("secret3");
+        assertEquals("Wrong source for secret3", "/foo2", secret3.getString("source"));
+
+        // secrets in env
+        final JSONObject env            = jsonRequest.getJSONObject("env");
+        final String     actualPassword = env.getJSONObject("PASSWORD").getString("secret");
+        final String     actualXPS2     = env.getString("XPS2");
+        assertEquals("Invalid value for PASSWORD", "/db/password", actualPassword);
+        assertEquals("Invalid value for XPS2", "Rest", actualXPS2);
     }
 
     /**
@@ -75,9 +95,6 @@ public class MarathonBuilderImplTest {
         assertEquals(2, builder.getJson().getJSONArray("uris").size());
         assertEquals(2, builder.getApp().getUris().size());
         assertEquals("https://foo.com/setup.py", builder.getApp().getUris().iterator().next());
-
-        builder = builder.build();
-        assertEquals(2, builder.getApp().getUris().size());
     }
 
     /**
