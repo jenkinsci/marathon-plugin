@@ -22,6 +22,7 @@ import mesosphere.marathon.client.model.v2.Container;
 import mesosphere.marathon.client.model.v2.Docker;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
@@ -309,7 +310,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * to their actual values.
      */
     private void setUris() {
-        if (config.getUris() != null && config.getUris().size() > 0) {
+        if (CollectionUtils.isNotEmpty(config.getUris())) {
             for (MarathonUri uri : config.getUris()) {
                 final String replacedUri = Util.replaceMacro(uri.getUri(), envVars);
                 getApp().addUri(replacedUri);
@@ -318,7 +319,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     private void setLabels() {
-        if (config.getLabels() != null && config.getLabels().size() > 0) {
+        if (CollectionUtils.isNotEmpty(config.getLabels())) {
             for (MarathonLabel label : config.getLabels()) {
                 final String labelName  = Util.replaceMacro(label.getName(), envVars);
                 final String labelValue = Util.replaceMacro(label.getValue(), envVars);
@@ -330,7 +331,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
 
     private void setEnv() {
-        if (config.getEnv() != null && config.getEnv().size() > 0) {
+        if (CollectionUtils.isNotEmpty(config.getEnv())) {
             Map<String, Object> envsToAdd = new HashMap<>(config.getEnv().size());
             for (MarathonVars var : config.getEnv()) {
                 envsToAdd.put(
