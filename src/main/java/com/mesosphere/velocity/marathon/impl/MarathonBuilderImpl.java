@@ -23,6 +23,7 @@ import mesosphere.marathon.client.model.v2.Docker;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
@@ -339,7 +340,11 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                         Util.replaceMacro(var.getValue(), envVars));
             }
 
-            getApp().setEnv(envsToAdd);
+            if (MapUtils.isEmpty(getApp().getEnv())) {
+                getApp().setEnv(envsToAdd);
+            } else {
+                getApp().getEnv().putAll(envsToAdd);
+            }
         }
     }
 }

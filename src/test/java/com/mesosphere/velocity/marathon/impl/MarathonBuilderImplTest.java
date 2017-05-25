@@ -115,6 +115,36 @@ public class MarathonBuilderImplTest {
         }
     }
 
+    /**
+     * Test that existing "env" section is not deleted or overwritten on subsequence builds.
+     */
+    @Test
+    public void testExistingEnv() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("env.json");
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+        final MockConfig config     = new MockConfig();
+
+        // add to the env
+        config.env.add(new MarathonVars("example", "test"));
+        // build
+        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
+
+        assertEquals("bar", builder.getApp().getEnv().get("foo"));
+        assertEquals("buzz", builder.getApp().getEnv().get("fizz"));
+        assertEquals("test", builder.getApp().getEnv().get("example"));
+    }
+
+    /**
+     * Test that existing "env" section is not deleted or overwritten on subsequence builds.
+     */
+    @Test
+    public void testNoEnv() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("idonly.json");
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+        MarathonBuilder  builder    = new MarathonBuilderImpl(new MockConfig()).setJson(json).build();
+        assertNull("Env should be null", builder.getApp().getEnv());
+    }
+
 
     static class MockConfig implements AppConfig {
         String              url;
