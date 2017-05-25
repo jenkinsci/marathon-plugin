@@ -135,14 +135,19 @@ public class MarathonBuilderImplTest {
     }
 
     /**
-     * Test that existing "env" section is not deleted or overwritten on subsequence builds.
+     * Test that an empty env section can be added to without issues.
      */
     @Test
     public void testNoEnv() throws IOException {
         final String     jsonString = TestUtils.loadFixture("idonly.json");
         final JSONObject json       = JSONObject.fromObject(jsonString);
-        MarathonBuilder  builder    = new MarathonBuilderImpl(new MockConfig()).setJson(json).build();
+        final MockConfig config     = new MockConfig();
+        MarathonBuilder  builder    = new MarathonBuilderImpl(config).setJson(json).build();
         assertNull("Env should be null", builder.getApp().getEnv());
+
+        config.env.add(new MarathonVars("foo", "bar"));
+        builder = builder.build();
+        assertEquals("foo not set correctly", "bar", builder.getApp().getEnv().get("foo"));
     }
 
 
