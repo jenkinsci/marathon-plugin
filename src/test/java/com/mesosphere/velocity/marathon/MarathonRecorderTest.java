@@ -23,6 +23,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestBuilder;
 
@@ -38,6 +39,9 @@ public class MarathonRecorderTest {
     private final static String      GENERIC_RESPONSE = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
     @Rule
     public               JenkinsRule j                = new JenkinsRule();
+    @Rule
+    public               TestName    name             = new TestName();
+
     /**
      * An HTTP Server to receive requests from the plugin.
      */
@@ -447,7 +451,7 @@ public class MarathonRecorderTest {
     }
 
     private FreeStyleProject basicSetup(final MarathonRecorder marathonRecorder, final String payload) throws IOException {
-        final FreeStyleProject project = j.createFreeStyleProject();
+        final FreeStyleProject project = j.jenkins.createProject(FreeStyleProject.class, name.getMethodName());
 
         TestUtils.enqueueJsonResponse(httpServer, GENERIC_RESPONSE);
         addBuilders(payload, project);
