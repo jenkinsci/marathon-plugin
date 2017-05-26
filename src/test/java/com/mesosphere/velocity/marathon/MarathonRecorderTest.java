@@ -5,11 +5,15 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
+import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.fields.MarathonVars;
 import hudson.ExtensionList;
 import hudson.Launcher;
 import hudson.model.*;
 import hudson.tasks.Shell;
 import hudson.util.Secret;
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -19,16 +23,24 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestBuilder;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class MarathonRecorderTest {
+    private final static String      GENERIC_RESPONSE = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
     @Rule
-    public JenkinsRule j = new JenkinsRule();
+    public               JenkinsRule j                = new JenkinsRule();
+    @Rule
+    public               TestName    name             = new TestName();
 
     /**
      * An HTTP Server to receive requests from the plugin.
@@ -77,16 +89,8 @@ public class MarathonRecorderTest {
      */
     @Test
     public void testRecorderPass() throws Exception {
-        final String           payload     = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project     = j.createFreeStyleProject();
-        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        TestUtils.enqueueJsonResponse(httpServer, responseStr);
-
-        // add builders
-        setupBasicProject(payload, project);
-
-        // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
+        final FreeStyleProject project = basicSetup(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer)));
+        final FreeStyleBuild   build   = basicRunWithSuccess(project);
         // assert things
         j.assertLogContains("application updated", build);
         assertEquals("Only 1 web request", 1, httpServer.getRequestCount());
@@ -99,72 +103,16 @@ public class MarathonRecorderTest {
      */
     @Test
     public void testMarathonAllFields() throws Exception {
-        final String payload = "{\n" +
-                "  \"id\": \"test-app\",\n" +
-                "  \"container\": {\n" +
-                "    \"type\": \"DOCKER\",\n" +
-                "    \"docker\": {\n" +
-                "      \"image\": \"mesosphere/test-app:latest\",\n" +
-                "      \"forcePullImage\": true,\n" +
-                "      \"network\": \"BRIDGE\",\n" +
-                "      \"portMappings\": [\n" +
-                "        {\n" +
-                "          \"hostPort\": 80,\n" +
-                "          \"containerPort\": 80,\n" +
-                "          \"protocol\": \"tcp\"\n" +
-                "        }\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  },\n" +
-                "  \"acceptedResourceRoles\": [\n" +
-                "    \"agent_public\"\n" +
-                "  ],\n" +
-                "  \"labels\": {\n" +
-                "    \"lastChangedBy\": \"test@example.com\"\n" +
-                "  },\n" +
-                "  \"uris\": [ \"http://www.example.com/file\" ],\n" +
-                "  \"instances\": 1,\n" +
-                "  \"cpus\": 0.1,\n" +
-                "  \"mem\": 128,\n" +
-                "  \"healthChecks\": [\n" +
-                "    {\n" +
-                "      \"protocol\": \"TCP\",\n" +
-                "      \"gracePeriodSeconds\": 600,\n" +
-                "      \"intervalSeconds\": 30,\n" +
-                "      \"portIndex\": 0,\n" +
-                "      \"timeoutSeconds\": 10,\n" +
-                "      \"maxConsecutiveFailures\": 2\n" +
-                "    }\n" +
-                "  ],\n" +
-                "  \"upgradeStrategy\": {\n" +
-                "        \"minimumHealthCapacity\": 0\n" +
-                "  },\n" +
-                "  \"backoffSeconds\": 1,\n" +
-                "  \"backoffFactor\": 1.15,\n" +
-                "  \"maxLaunchDelaySeconds\": 3600,\n" +
-                "}";
-        final JSONObject       payloadJson = JSONObject.fromObject(payload);
-        final FreeStyleProject project     = j.createFreeStyleProject();
-        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        TestUtils.enqueueJsonResponse(httpServer, responseStr);
-
-        // add builders
-        setupBasicProject(payload, project);
-
-        // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
+        final String           payload          = TestUtils.loadFixture("allfields.json");
+        final JSONObject       payloadJson      = JSONObject.fromObject(payload);
+        final MarathonRecorder marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer));
+        final FreeStyleProject project          = basicSetup(marathonRecorder, payload);
+        final FreeStyleBuild   build            = basicRunWithSuccess(project);
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
 
         // get the request body of the first request sent to the handler
-        RecordedRequest req = httpServer.takeRequest();
-        assertNotNull(req);
-        final JSONObject requestJson = JSONObject.fromObject(req.getBody().readUtf8());
-
-        // verify that each root field is present in the received request
-        for (Object key : payloadJson.keySet()) {
-            final String keyStr = (String) key;
-            assertTrue(String.format("JSON is missing field: %s", keyStr), requestJson.containsKey(keyStr));
-        }
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        assertEquals("JSON does not match", payloadJson, jsonRequest);
     }
 
     /**
@@ -176,8 +124,6 @@ public class MarathonRecorderTest {
      */
     @Test
     public void testRecorderMaxRetries() throws Exception {
-        final String           payload = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project = j.createFreeStyleProject();
         // return 409 to trigger retry logic
         TestUtils.enqueueFailureResponse(httpServer, 409);
         TestUtils.enqueueFailureResponse(httpServer, 409);
@@ -188,10 +134,9 @@ public class MarathonRecorderTest {
         TestUtils.enqueueFailureResponse(httpServer, 409);
         TestUtils.enqueueFailureResponse(httpServer, 409);
 
-        // add builders
-        setupBasicProject(payload, project);
-        // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
+        final FreeStyleProject project = basicSetup(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer)));
+        final FreeStyleBuild   build   = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
+
         // assert things
         j.assertLogContains("[Marathon]", build);
         j.assertLogContains("max retries", build);
@@ -207,13 +152,31 @@ public class MarathonRecorderTest {
      */
     @Test
     public void testRecorder404() throws Exception {
-        final String           payload = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project = j.createFreeStyleProject();
         // return a 404, which will fail the build
         TestUtils.enqueueFailureResponse(httpServer, 404);
-        setupBasicProject(payload, project);
-        // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
+
+        final FreeStyleProject project = basicSetup(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer)));
+        final FreeStyleBuild   build   = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
+
+        j.assertLogContains("Failed to update", build);
+        assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
+    }
+
+    /**
+     * Test that a 5xx (503 in this case) response code does not
+     * trigger retries. This should result in only one request
+     * being made to the configured Marathon instance.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testRecorder503() throws Exception {
+        // return a 503, which will fail the build
+        TestUtils.enqueueFailureResponse(httpServer, 503);
+
+        final FreeStyleProject project = basicSetup(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer)));
+        final FreeStyleBuild   build   = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
+
         // assert things
         j.assertLogContains("Failed to update", build);
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
@@ -226,20 +189,10 @@ public class MarathonRecorderTest {
      * @throws Exception
      */
     @Test
-    public void testURLMacro() throws Exception {
-        final String           payload     = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project     = j.createFreeStyleProject();
-        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        TestUtils.enqueueJsonResponse(httpServer, responseStr);
-
-        // add builders
-        addBuilders(payload, project);
-        // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer) + "${BUILD_NUMBER}"));
-
-        // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
-        j.assertLogContains("[Marathon]", build);
+    public void testRecorderURLMacro() throws Exception {
+        final MarathonRecorder marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer) + "${BUILD_NUMBER}");
+        final FreeStyleProject project          = basicSetup(marathonRecorder);
+        final FreeStyleBuild   build            = basicRunWithSuccess(project);
 
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
         RecordedRequest request     = httpServer.takeRequest();
@@ -254,47 +207,146 @@ public class MarathonRecorderTest {
     }
 
     /**
-     * Test that a 5xx (503 in this case) response code does not
-     * trigger retries. This should result in only one request
-     * being made to the configured Marathon instance.
+     * Test that URIs are properly put through replace macro.
      *
      * @throws Exception
      */
     @Test
-    public void testRecorder503() throws Exception {
-        final String           payload = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project = j.createFreeStyleProject();
-        // return a 503, which will fail the build
-        TestUtils.enqueueFailureResponse(httpServer, 503);
+    public void testRecorderURIsMacro() throws Exception {
+        final List<MarathonUri> uris             = new ArrayList<>(2);
+        final MarathonRecorder  marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer));
 
-        // add builders
-        setupBasicProject(payload, project);
+        uris.add(new MarathonUri("http://example.com/${BUILD_NUMBER}"));
+        uris.add(new MarathonUri("http://again.example.com/$BUILD_NUMBER"));
+        marathonRecorder.setUris(uris);
 
-        // run a build with the shell step and recorder publisher
-        final FreeStyleBuild build = j.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0).get());
+        final FreeStyleProject project = basicSetup(marathonRecorder);
+        final FreeStyleBuild   build   = basicRunWithSuccess(project);
 
-        // assert things
-        j.assertLogContains("Failed to update", build);
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
+        final JSONObject   jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        final JSONArray    urisList    = jsonRequest.getJSONArray("uris");
+        final String       buildNumber = String.valueOf(build.getNumber());
+        final List<String> buildUris   = new ArrayList<>(Arrays.asList("http://example.com/" + buildNumber, "http://again.example.com/" + buildNumber));
+
+        for (Object uriObj : urisList) {
+            String uri = (String) uriObj;
+            assertTrue("Invalid URI", buildUris.contains(uri));
+        }
     }
 
+    /**
+     * Test that Labels are properly put through replace macro.
+     *
+     * @throws Exception
+     */
     @Test
-    public void testBasicToken() throws Exception {
-        final String           payload     = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project     = j.createFreeStyleProject();
-        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        TestUtils.enqueueJsonResponse(httpServer, responseStr);
+    public void testRecorderLabelsMacro() throws Exception {
+        final List<MarathonLabel> labels           = new ArrayList<>(2);
+        final MarathonRecorder    marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer));
 
+        labels.add(new MarathonLabel("foo", "bar-${BUILD_NUMBER}"));
+        labels.add(new MarathonLabel("fizz", "buzz-$BUILD_NUMBER"));
+        marathonRecorder.setLabels(labels);
+
+        final FreeStyleProject project = basicSetup(marathonRecorder);
+        final FreeStyleBuild   build   = basicRunWithSuccess(project);
+
+        assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        final JSONObject jsonLabel   = jsonRequest.getJSONObject("labels");
+        final String     buildNumber = String.valueOf(build.getNumber());
+
+        assertEquals("'foo' label failed", "bar-" + buildNumber, jsonLabel.getString("foo"));
+        assertEquals("'fizz1' label failed", "buzz-" + buildNumber, jsonLabel.getString("fizz"));
+    }
+
+
+    /**
+     * Test that Vars are properly put through the replace macro.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testRecorderEnvMacro() throws Exception {
+        final List<MarathonVars> envs             = new ArrayList<>(2);
+        final MarathonRecorder   marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer));
+
+        envs.add(new MarathonVars("foo", "bar-${BUILD_NUMBER}"));
+        envs.add(new MarathonVars("fizz", "buzz-$BUILD_NUMBER"));
+        marathonRecorder.setEnvironment(envs);
+
+        final FreeStyleProject project = basicSetup(marathonRecorder);
+        final FreeStyleBuild   build   = basicRunWithSuccess(project);
+
+        assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        final JSONObject jsonEnv     = jsonRequest.getJSONObject("env");
+        final String     buildNumber = String.valueOf(build.getNumber());
+
+        assertEquals("'foo' label failed", "bar-" + buildNumber, jsonEnv.getString("foo"));
+        assertEquals("'fizz1' label failed", "buzz-" + buildNumber, jsonEnv.getString("fizz"));
+    }
+
+    /**
+     * Test that appId goes through the replace macro correctly.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testRecorderAppIdMacro() throws Exception {
+        final MarathonRecorder marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer));
+        marathonRecorder.setAppid("mytestapp-${BUILD_NUMBER}");
+
+        final FreeStyleProject project = basicSetup(marathonRecorder);
+        final FreeStyleBuild   build   = basicRunWithSuccess(project);
+
+        assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        assertEquals("Wrong ID was submitted",
+                "mytestapp-" + String.valueOf(build.getNumber()),
+                jsonRequest.getString("id"));
+    }
+
+    /**
+     * Test the docker image properly goes through replace macro.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testRecorderDockerMacro() throws Exception {
+        final MarathonRecorder marathonRecorder = new MarathonRecorder(TestUtils.getHttpAddresss(httpServer));
+        marathonRecorder.setDocker("image-${BUILD_NUMBER}");
+
+        final FreeStyleProject project = basicSetup(marathonRecorder);
+        final FreeStyleBuild   build   = basicRunWithSuccess(project);
+
+        assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        assertEquals("Wrong docker image was submitted",
+                "image-" + String.valueOf(build.getNumber()),
+                jsonRequest.getJSONObject("container").getJSONObject("docker").getString("image"));
+    }
+
+    /**
+     * Test a basic API token using StringCredentials.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testRecorderBasicToken() throws Exception {
+        final FreeStyleProject                       project     = j.createFreeStyleProject();
+        final String                                 responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
         final SystemCredentialsProvider.ProviderImpl system      = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
         final CredentialsStore                       systemStore = system.getStore(j.getInstance());
         final String                                 tokenValue  = "my secret token";
         final Secret                                 secret      = Secret.fromString(tokenValue);
         final StringCredentials                      credential  = new StringCredentialsImpl(CredentialsScope.GLOBAL, "basictoken", "a token for basic token test", secret);
-
+        TestUtils.enqueueJsonResponse(httpServer, responseStr);
         systemStore.addCredentials(Domain.global(), credential);
 
         // add builders
-        addBuilders(payload, project);
+        addBuilders(TestUtils.loadFixture("idonly.json"), project);
         // add post-builder
         addPostBuilders(project, "basictoken");
 
@@ -315,23 +367,20 @@ public class MarathonRecorderTest {
      * @throws Exception
      */
     @Test
-    public void testJSONToken() throws Exception {
-        final String           payload     = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project     = j.createFreeStyleProject();
-        final String           responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        TestUtils.enqueueJsonResponse(httpServer, responseStr);
-
+    public void testRecorderJSONToken() throws Exception {
+        final FreeStyleProject                       project         = j.createFreeStyleProject();
+        final String                                 responseStr     = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
         final SystemCredentialsProvider.ProviderImpl system          = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
         final CredentialsStore                       systemStore     = system.getStore(j.getInstance());
         final String                                 tokenValue      = "my secret token";
         final String                                 credentialValue = "{\"field1\":\"some value\", \"jenkins_token\":\"" + tokenValue + "\"}";
         final Secret                                 secret          = Secret.fromString(credentialValue);
         final StringCredentials                      credential      = new StringCredentialsImpl(CredentialsScope.GLOBAL, "jsontoken", "a token for JSON token test", secret);
-
+        TestUtils.enqueueJsonResponse(httpServer, responseStr);
         systemStore.addCredentials(Domain.global(), credential);
 
         // add builders
-        addBuilders(payload, project);
+        addBuilders(TestUtils.loadFixture("idonly.json"), project);
 
         // add post-builder
         addPostBuilders(project, "jsontoken");
@@ -353,10 +402,8 @@ public class MarathonRecorderTest {
      * @throws Exception
      */
     @Test
-    public void testInvalidToken() throws Exception {
-        final String           payload = "{\"id\":\"myapp\"}";
-        final FreeStyleProject project = j.createFreeStyleProject();
-
+    public void testRecorderInvalidToken() throws Exception {
+        final FreeStyleProject                       project         = j.createFreeStyleProject();
         final SystemCredentialsProvider.ProviderImpl system          = ExtensionList.lookup(CredentialsProvider.class).get(SystemCredentialsProvider.ProviderImpl.class);
         final CredentialsStore                       systemStore     = system.getStore(j.getInstance());
         final String                                 credentialValue = "{\"field1\":\"some value\"}";
@@ -366,7 +413,7 @@ public class MarathonRecorderTest {
 
         systemStore.addCredentials(Domain.global(), credential);
 
-        addBuilders(payload, project);
+        addBuilders(TestUtils.loadFixture("idonly.json"), project);
 
         // add post-builder
         addPostBuilders(project, "invalidtoken");
@@ -389,13 +436,6 @@ public class MarathonRecorderTest {
     }
 
 
-    private void setupBasicProject(String payload, FreeStyleProject project) {
-        // add builders
-        addBuilders(payload, project);
-        // add post-builder
-        project.getPublishersList().add(new MarathonRecorder(TestUtils.getHttpAddresss(httpServer)));
-    }
-
     private TestBuilder createMarathonFileBuilder(final String payload) {
         return new TestBuilder() {
             public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
@@ -404,5 +444,24 @@ public class MarathonRecorderTest {
                 return true;
             }
         };
+    }
+
+    private FreeStyleProject basicSetup(final MarathonRecorder mr) throws IOException {
+        return basicSetup(mr, TestUtils.loadFixture("idonly.json"));
+    }
+
+    private FreeStyleProject basicSetup(final MarathonRecorder marathonRecorder, final String payload) throws IOException {
+        final FreeStyleProject project = j.jenkins.createProject(FreeStyleProject.class, name.getMethodName());
+
+        TestUtils.enqueueJsonResponse(httpServer, GENERIC_RESPONSE);
+        addBuilders(payload, project);
+        project.getPublishersList().add(marathonRecorder);
+        return project;
+    }
+
+    private FreeStyleBuild basicRunWithSuccess(final FreeStyleProject project) throws Exception {
+        final FreeStyleBuild build = j.assertBuildStatusSuccess(project.scheduleBuild2(0).get());
+        j.assertLogContains("[Marathon]", build);
+        return build;
     }
 }

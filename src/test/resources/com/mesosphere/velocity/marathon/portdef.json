@@ -1,0 +1,15 @@
+{
+  "id": "/app/id",
+  "cmd": "some cmd to run stuff",
+  "cpus": 1,
+  "mem": 512,
+  "disk": 100,
+  "instances": 1,
+  "portDefinitions": [
+    {
+      "port": 31009,
+      "protocol": "tcp",
+      "labels": {}
+    }
+  ]
+ }

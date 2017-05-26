@@ -17,18 +17,27 @@ import org.jvnet.hudson.test.JenkinsRule;
 import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class MarathonStepTest {
+    private static final String      GENERIC_RESPONSE = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
     @Rule
-    public JenkinsRule j    = new JenkinsRule();
+    public               JenkinsRule j                = new JenkinsRule();
     @Rule
-    public TestName    name = new TestName();
+    public               TestName    name             = new TestName();
 
     /**
      * An HTTP Server to receive requests from the plugin.
      */
     private MockWebServer httpServer;
+
+    private static String marathonLine(final String url) {
+        return "url: '" + url + "'";
+    }
+
+    private static String marathonLine(final String url, final String id) {
+        if (id == null) return marathonLine(url);
+        return String.format("id: '%s', url: '%s'", id, url);
+    }
 
     @Before
     public void setUp() throws IOException {
@@ -50,10 +59,9 @@ public class MarathonStepTest {
     @Test
     public void testStepFail() throws Exception {
         TestUtils.enqueueFailureResponse(httpServer, 404);
-        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
-
-        job.setDefinition(new CpsFlowDefinition(generateSimpleScript(null, name.getMethodName()), true));
-        WorkflowRun run = j.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(1).get());
+        final String      script = generateSimpleScript(null, name.getMethodName());
+        final WorkflowJob job    = basicSetupWithScript(script);
+        final WorkflowRun run    = basicRunWithFailure(job);
         j.assertLogNotContains("DEPRECATION WARNING", run);
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
     }
@@ -65,42 +73,44 @@ public class MarathonStepTest {
      */
     @Test
     public void testStepAppIdDeprecationMessage() throws Exception {
-        TestUtils.enqueueFailureResponse(httpServer, 404);
-        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
-
         final String groovyScript = "node { " +
-                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '{\"id\": \"testing\", \"cmd\": \"sleep 60\"}');\n" +
-                "marathon(appid: 'testStepAppIdDeprecationMessage', url: '" + TestUtils.getHttpAddresss(httpServer) + "'); " +
+                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '''%s''');\n" +
+                "marathon(appid: 'testStepAppIdDeprecationMessage', url: '%s'); " +
                 "}";
 
-        job.setDefinition(new CpsFlowDefinition(groovyScript, true));
-        WorkflowRun run = j.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(1).get());
+        TestUtils.enqueueFailureResponse(httpServer, 404);
+        final String      url     = TestUtils.getHttpAddresss(httpServer);
+        final String      payload = TestUtils.loadFixture("idonly.json");
+        final String      script  = String.format(groovyScript, payload, url);
+        final WorkflowJob job     = basicSetupWithScript(script);
+        final WorkflowRun run     = basicRunWithFailure(job);
         j.assertLogContains("DEPRECATION WARNING", run);
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
     }
 
     @Test
-    public void testMultipleDeployments() throws Exception {
-        TestUtils.enqueueJsonResponse(httpServer, "{\"version\": \"one\", \"deploymentId\": \"myapp\"}");
-        TestUtils.enqueueJsonResponse(httpServer, "{\"version\": \"one\", \"deploymentId\": \"myapp2\"}");
-
-        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
-
+    public void testStepMultipleDeployments() throws Exception {
         final String groovyScript = "node { " +
-                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '{\"id\": \"testing1\", \"cmd\": \"sleep 60\"}');\n" +
-                "writeFile(encoding: 'utf-8', file: 'marathon2.json', text: '{\"id\": \"testing2\", \"cmd\": \"sleep 60\"}');\n" +
-                "marathon(url: '" + TestUtils.getHttpAddresss(httpServer) + "'); " +
-                "marathon(filename: 'marathon2.json', url: '" + TestUtils.getHttpAddresss(httpServer) + "'); " +
+                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '{\"id\": \"testing1\"}');\n" +
+                "writeFile(encoding: 'utf-8', file: 'marathon2.json', text: '{\"id\": \"testing2\"}');\n" +
+                "marathon(url: '%s'); " +
+                "marathon(filename: 'marathon2.json', url: '%s'); " +
                 "}";
 
-        job.setDefinition(new CpsFlowDefinition(groovyScript, true));
-        WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
-        assertEquals("Two requests should be made", 2, httpServer.getRequestCount());
+        // enqueue responses
+        TestUtils.enqueueJsonResponse(httpServer, GENERIC_RESPONSE);
+        TestUtils.enqueueJsonResponse(httpServer, GENERIC_RESPONSE);
 
-        RecordedRequest request1 = httpServer.takeRequest();
-        RecordedRequest request2 = httpServer.takeRequest();
-        assertEquals("testing1", JSONObject.fromObject(request1.getBody().readUtf8()).getString("id"));
-        assertEquals("testing2", JSONObject.fromObject(request2.getBody().readUtf8()).getString("id"));
+        final String      url            = TestUtils.getHttpAddresss(httpServer);
+        final String      workflowScript = String.format(groovyScript, url, url);
+        final WorkflowJob job            = basicSetupWithScript(workflowScript);
+        basicRunWithSuccess(job);
+
+        assertEquals("Two requests should be made", 2, httpServer.getRequestCount());
+        final JSONObject request1 = TestUtils.jsonFromRequest(httpServer);
+        final JSONObject request2 = TestUtils.jsonFromRequest(httpServer);
+        assertEquals("testing1", request1.getString("id"));
+        assertEquals("testing2", request2.getString("id"));
     }
 
     /**
@@ -109,15 +119,13 @@ public class MarathonStepTest {
      * @throws Exception if something goes wrong
      */
     @Test
-    public void testMaxRetries() throws Exception {
+    public void testStepMaxRetries() throws Exception {
         TestUtils.enqueueFailureResponse(httpServer, 409);
         TestUtils.enqueueFailureResponse(httpServer, 409);
         TestUtils.enqueueFailureResponse(httpServer, 409);
 
-        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
-
-        job.setDefinition(new CpsFlowDefinition(generateSimpleScript(), true));
-        WorkflowRun run = j.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(1).get());
+        final WorkflowJob job = basicSetup();
+        final WorkflowRun run = basicRunWithFailure(job);
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
         j.assertLogContains("Client Error", run);
         j.assertLogContains("http status: 409", run);
@@ -130,40 +138,31 @@ public class MarathonStepTest {
      * @throws Exception when errors occur.
      */
     @Test
-    public void testRecorderNoFile() throws Exception {
-        TestUtils.enqueueFailureResponse(httpServer, 400);
+    public void testStepNoFile() throws Exception {
+        final String groovyScript = "node { marathon(url: '%s'); }";
 
-        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, "recordernofile");
-        job.setDefinition(new CpsFlowDefinition("node {" +
-                "marathon(id: '" + name.getMethodName() +
-                "', url: '" + TestUtils.getHttpAddresss(httpServer) + "'); " +
-                "}"));
-        WorkflowRun run = j.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(1).get());
+        TestUtils.enqueueFailureResponse(httpServer, 400);
+        final String      url    = TestUtils.getHttpAddresss(httpServer);
+        final String      script = String.format(groovyScript, url);
+        final WorkflowJob job    = basicSetupWithScript(script);
+        final WorkflowRun run    = basicRunWithFailure(job);
         j.assertLogContains("Could not find file 'marathon.json'", run);
         assertEquals("No requests were made", 0, httpServer.getRequestCount());
     }
 
     /**
-     * Test a basic successful scenario. The marathin instance will return
+     * Test a basic successful scenario. The marathon instance will return
      * a 200 OK.
      *
      * @throws Exception if things go awry
      */
     @Test
-    public void testRecorderPass() throws Exception {
-        final String      payload  = "{\"id\":\"myapp\"}";
-        final WorkflowJob job      = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
-        final String      response = "{\"version\": \"one\", \"deploymentId\": \"myapp\"}";
-        TestUtils.enqueueJsonResponse(httpServer, response);
-
-        job.setDefinition(new CpsFlowDefinition(generateSimpleScript(payload, null), true));
-        WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
+    public void testStepPass() throws Exception {
+        basicRunWithSuccess(basicSetup());
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
 
-        RecordedRequest request        = httpServer.takeRequest();
-        final String    requestPayload = request.getBody().readUtf8();
-        JSONObject      json           = JSONObject.fromObject(requestPayload);
-        assertEquals("Id was not set correctly", "myapp", json.getString("id"));
+        final String actualId = TestUtils.jsonFromRequest(httpServer).getString("id");
+        assertEquals("Id was not set correctly", "myapp", actualId);
     }
 
     /**
@@ -173,71 +172,16 @@ public class MarathonStepTest {
      * @throws Exception when problems happen
      */
     @Test
-    public void testMarathonAllFields() throws Exception {
-        final String payload = "{\n" +
-                "  \"id\": \"test-app\",\n" +
-                "  \"container\": {\n" +
-                "    \"type\": \"DOCKER\",\n" +
-                "    \"docker\": {\n" +
-                "      \"image\": \"mesosphere/test-app:latest\",\n" +
-                "      \"forcePullImage\": true,\n" +
-                "      \"network\": \"BRIDGE\",\n" +
-                "      \"portMappings\": [\n" +
-                "        {\n" +
-                "          \"hostPort\": 80,\n" +
-                "          \"containerPort\": 80,\n" +
-                "          \"protocol\": \"tcp\"\n" +
-                "        }\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  },\n" +
-                "  \"acceptedResourceRoles\": [\n" +
-                "    \"agent_public\"\n" +
-                "  ],\n" +
-                "  \"labels\": {\n" +
-                "    \"lastChangedBy\": \"test@example.com\"\n" +
-                "  },\n" +
-                "  \"uris\": [ \"http://www.example.com/file\" ],\n" +
-                "  \"instances\": 1,\n" +
-                "  \"cpus\": 0.1,\n" +
-                "  \"mem\": 128,\n" +
-                "  \"healthChecks\": [\n" +
-                "    {\n" +
-                "      \"protocol\": \"TCP\",\n" +
-                "      \"gracePeriodSeconds\": 600,\n" +
-                "      \"intervalSeconds\": 30,\n" +
-                "      \"portIndex\": 0,\n" +
-                "      \"timeoutSeconds\": 10,\n" +
-                "      \"maxConsecutiveFailures\": 2\n" +
-                "    }\n" +
-                "  ],\n" +
-                "  \"upgradeStrategy\": {\n" +
-                "        \"minimumHealthCapacity\": 0\n" +
-                "  },\n" +
-                "  \"backoffSeconds\": 1,\n" +
-                "  \"backoffFactor\": 1.15,\n" +
-                "  \"maxLaunchDelaySeconds\": 3600\n" +
-                "}";
-        final String responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        TestUtils.enqueueJsonResponse(httpServer, responseStr);
+    public void testStepAllFields() throws Exception {
+        final String      payload = TestUtils.loadFixture("allfields.json");
+        final WorkflowJob job     = basicSetup(payload);
+        basicRunWithSuccess(job);
 
-        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
-        job.setDefinition(new CpsFlowDefinition(generateSimpleScript(payload, null), true));
-        WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
-
-        RecordedRequest request        = httpServer.takeRequest();
-        final String    requestPayload = request.getBody().readUtf8();
-        JSONObject      json           = JSONObject.fromObject(requestPayload);
-        assertEquals("Id was not set correctly", "test-app", json.getString("id"));
-
-        final JSONObject jsonPayload = JSONObject.fromObject(payload);
-
-        // verify that each root field is present in the received request
-        for (Object key : jsonPayload.keySet()) {
-            final String keyStr = (String) key;
-            assertTrue(String.format("JSON is missing field: %s", keyStr), json.containsKey(keyStr));
-        }
+        final JSONObject actualJson   = TestUtils.jsonFromRequest(httpServer);
+        final JSONObject expectedJson = JSONObject.fromObject(payload);
+        assertEquals("Id was not set correctly", "/foo", actualJson.getString("id"));
+        assertEquals("JSON objects are not the same", expectedJson, actualJson);
     }
 
     /**
@@ -247,19 +191,17 @@ public class MarathonStepTest {
      * @throws Exception in some special instances
      */
     @Test
-    public void testURLMacro() throws Exception {
-        final String responseStr = "{\"version\": \"one\", \"deploymentId\": \"someid-here\"}";
-        TestUtils.enqueueJsonResponse(httpServer, responseStr);
-
-        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
-
+    public void testStepURLMacro() throws Exception {
         final String groovyScript = "node { " +
-                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '{\"id\": \"myapp\", \"cmd\": \"sleep 60\"}');\n" +
-                "marathon(url: '" + TestUtils.getHttpAddresss(httpServer) + "${BUILD_NUMBER}'); " +
+                "writeFile(encoding: 'utf-8', file: 'marathon.json', text: '{\"id\": \"myapp\"}');\n" +
+                "marathon(url: '%s'); " +
                 "}";
 
-        job.setDefinition(new CpsFlowDefinition(groovyScript, true));
-        WorkflowRun run = j.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(1).get());
+        TestUtils.enqueueJsonResponse(httpServer, GENERIC_RESPONSE);
+        final String      url    = TestUtils.getHttpAddresss(httpServer) + "${BUILD_NUMBER}";
+        final String      script = String.format(groovyScript, url);
+        final WorkflowJob job    = basicSetupWithScript(script);
+        final WorkflowRun run    = basicRunWithSuccess(job);
 
         assertEquals("Only 1 request should be made", 1, httpServer.getRequestCount());
         RecordedRequest request     = httpServer.takeRequest();
@@ -274,29 +216,101 @@ public class MarathonStepTest {
     }
 
     /**
-     * See {@link #generateSimpleScript(String, String)} for details.
-     *
-     * @return pipeline groovy script
-     */
-    private String generateSimpleScript() {
-        return generateSimpleScript(null, null);
-    }
-
-    /**
      * Helper method to generate the groovy script for pipeline jobs.
      *
      * @param fileContents JSON contents for marathon.json file (optional)
      * @param id           marathon id for application (optional)
      * @return pipeline groovy script
      */
-    private String generateSimpleScript(final String fileContents, final String id) {
+    private String generateSimpleScript(final String fileContents, final String id) throws IOException {
         final String nodeScript = "node { \n" +
                 "writeFile(encoding: 'utf-8', file: 'marathon.json', text: \"\"\"%s\"\"\");\n" +
-                "marathon(%s url: '%s');\n" +
+                "marathon(%s);\n" +
                 "}";
-        return String.format(nodeScript,
-                fileContents == null ? "{\"id\": \"testing\", \"cmd\": \"sleep 60\"}" : fileContents,
-                id == null ? "" : "id: '" + id + "', ",
-                TestUtils.getHttpAddresss(httpServer));
+
+        final String contents     = fileContents == null ? TestUtils.loadFixture("idonly.json") : fileContents;
+        final String marathonCall = marathonLine(TestUtils.getHttpAddresss(httpServer), id);
+        return String.format(nodeScript, contents, marathonCall);
     }
+
+    /**
+     * Basic workflow job setup.
+     *
+     * @return created job
+     * @throws IOException when filesystem operations have problems
+     * @see #basicSetup(String)
+     */
+    private WorkflowJob basicSetup() throws IOException {
+        return basicSetup(null);
+    }
+
+    /**
+     * Basic workflow job setup. This enqueues a JSON response to the
+     * mock web server and creates a new workflow job. The new job
+     * contains a generic groovy script with the marathon app
+     * definition set to payload.
+     *
+     * @param payload marathon app definition
+     * @return created job
+     * @throws IOException when filesystem operations have problems
+     */
+    private WorkflowJob basicSetup(final String payload) throws IOException {
+        TestUtils.enqueueJsonResponse(httpServer, GENERIC_RESPONSE);
+
+        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
+        job.setDefinition(new CpsFlowDefinition(generateSimpleScript(payload, null), true));
+        return job;
+    }
+
+    /**
+     * Basic workflow job setup. This does not enqueue a response to
+     * the mock web server.
+     *
+     * @param script workflow / groovy script
+     * @return created job
+     * @throws IOException when filesystem has issues
+     */
+    private WorkflowJob basicSetupWithScript(final String script) throws IOException {
+        final WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, name.getMethodName());
+        job.setDefinition(new CpsFlowDefinition(script, true));
+        return job;
+    }
+
+    /**
+     * Execute a workflow job, verify it was successful, and check the log contains "marathon".
+     *
+     * @param project workflow job
+     * @return workflow run
+     * @throws Exception when a run is unable to be retrieved
+     */
+    private WorkflowRun basicRunWithSuccess(final WorkflowJob project) throws Exception {
+        return basicRunWithResult(project, Result.SUCCESS);
+    }
+
+    /**
+     * Execute a workflow job and verify it failed.
+     *
+     * @param project workflow job
+     * @return workflow run
+     * @throws Exception when a run is unable to be retrieved
+     */
+    private WorkflowRun basicRunWithFailure(final WorkflowJob project) throws Exception {
+        return basicRunWithResult(project, Result.FAILURE);
+    }
+
+    /**
+     * Execute a run and verify it matches the expected result. This
+     * does check the log file upon success for "marathon".
+     *
+     * @param project workflow job
+     * @param result  expected result
+     * @return workflow run
+     * @throws Exception when a run is unable to be executed
+     */
+    private WorkflowRun basicRunWithResult(final WorkflowJob project, final Result result) throws Exception {
+        final WorkflowRun build = j.assertBuildStatus(result, project.scheduleBuild2(0).get());
+        if (result == Result.SUCCESS) j.assertLogContains("marathon", build);
+        return build;
+    }
+
 }

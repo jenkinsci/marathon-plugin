@@ -1,156 +1,100 @@
 package com.mesosphere.velocity.marathon.impl;
 
 import com.google.gson.JsonSyntaxException;
-import com.mesosphere.velocity.marathon.exceptions.MarathonFileInvalidException;
-import com.mesosphere.velocity.marathon.exceptions.MarathonFileMissingException;
+import com.mesosphere.velocity.marathon.TestUtils;
+import com.mesosphere.velocity.marathon.exceptions.AuthenticationException;
+import com.mesosphere.velocity.marathon.fields.MarathonLabel;
 import com.mesosphere.velocity.marathon.fields.MarathonUri;
+import com.mesosphere.velocity.marathon.fields.MarathonVars;
 import com.mesosphere.velocity.marathon.interfaces.AppConfig;
 import com.mesosphere.velocity.marathon.interfaces.MarathonBuilder;
-import hudson.FilePath;
 import net.sf.json.JSONObject;
+import okhttp3.mockwebserver.MockWebServer;
+import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.when;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({FilePath.class})
 public class MarathonBuilderImplTest {
-    @Rule
-    public final ExpectedException exception = ExpectedException.none();
-    @Mock
-    private AppConfig       appConfig;
-    private MarathonBuilder builder;
+    private MockWebServer httpServer;
 
     @Before
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
+    public void setUp() throws IOException {
+        httpServer = new MockWebServer();
+        httpServer.start();
     }
 
-    @Test
-    public void testSetJson() {
-        final String     key  = "key";
-        final String     val  = "testvalue";
-        final JSONObject json = new JSONObject();
-
-        builder = new MarathonBuilderImpl(appConfig);
-        assertNull("JSON is null on initial creation.", builder.getJson());
-
-        builder.setJson(json);
-        assertNotNull("An empty JSON object is set correctly.", builder.getJson());
-
-        json.put(key, val);
-        builder.setJson(json);
-        assertEquals("Simple JSON object with values is set correctly.", builder.getJson().getString(key), val);
+    @After
+    public void tearDown() throws IOException {
+        httpServer.shutdown();
+        httpServer = null;
     }
 
+    /**
+     * Test that the content of the allfields fixture is properly sent to the remote server.
+     *
+     * @throws IOException             when IO issues occur
+     * @throws AuthenticationException when authentication fails
+     * @throws InterruptedException    when retries are interrupted
+     */
     @Test
-    public void testReadNonexistingFile()
-            throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
-        final String   filename = "somefile";
-        final FilePath wsMock   = PowerMockito.mock(FilePath.class);
-        final FilePath fileMock = PowerMockito.mock(FilePath.class);
-        when(wsMock.child(anyString())).thenReturn(fileMock);
-        when(fileMock.exists()).thenReturn(false);
+    public void testAllMarathonFields() throws IOException, AuthenticationException, InterruptedException {
+        MockConfig config  = new MockConfig();
+        String     payload = TestUtils.loadFixture("allfields.json");
+        JSONObject json    = JSONObject.fromObject(payload);
+        config.url = TestUtils.getHttpAddresss(httpServer);
 
-        // create builder
-        builder = new MarathonBuilderImpl(appConfig);
+        TestUtils.enqueueJsonResponse(httpServer, "{}");
+        new MarathonBuilderImpl(config)
+                .setJson(json)
+                .build()
+                .update();
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        assertEquals("JSON objects are different", json, jsonRequest);
 
-        // setup FileMissing exception
-        exception.expect(MarathonFileMissingException.class);
-        builder.setWorkspace(wsMock).read(filename);
-    }
+        // secrets
+        final JSONObject secrets = jsonRequest.getJSONObject("secrets");
+        final JSONObject secret3 = secrets.getJSONObject("secret3");
+        assertEquals("Wrong source for secret3", "/foo2", secret3.getString("source"));
 
-    @Test
-    public void testReadDirectoryFile() throws InterruptedException, MarathonFileMissingException, MarathonFileInvalidException, IOException {
-        final String   filename = "somefile";
-        final FilePath wsMock   = PowerMockito.mock(FilePath.class);
-        final FilePath fileMock = PowerMockito.mock(FilePath.class);
-        when(wsMock.child(anyString())).thenReturn(fileMock);
-        when(fileMock.exists()).thenReturn(true);
-        when(fileMock.isDirectory()).thenReturn(true);
-
-        // create builder
-        builder = new MarathonBuilderImpl(appConfig);
-
-        // setup FileInvalid exception
-        exception.expect(MarathonFileInvalidException.class);
-        builder.setWorkspace(wsMock).read(filename);
-    }
-
-    @Test
-    public void testReadPositive() throws Exception {
-        final String     filename     = "somefile";
-        final FilePath   wsMock       = PowerMockito.mock(FilePath.class);
-        final FilePath   fileMock     = PowerMockito.mock(FilePath.class);
-        final JSONObject expectedJson = new JSONObject();
-
-        when(wsMock.child(anyString())).thenReturn(fileMock);
-        when(fileMock.exists()).thenReturn(true);
-        when(fileMock.isDirectory()).thenReturn(false);
-
-        // the magic...
-        when(fileMock.readToString()).thenReturn("{}");
-
-        builder = new MarathonBuilderImpl(appConfig);
-        builder.setWorkspace(wsMock).read(filename);
-        assertEquals("Empty JSON Object was read in", expectedJson, builder.getJson());
-
-        // now non-empty
-        when(fileMock.readToString()).thenReturn("{\"id\": \"myid\"}");
-        expectedJson.put("id", "myid");
-        builder.read(filename);
-        assertEquals("JSON should have same id",
-                expectedJson.getString("id"), builder.getJson().getString("id"));
+        // secrets in env
+        final JSONObject env            = jsonRequest.getJSONObject("env");
+        final String     actualPassword = env.getJSONObject("PASSWORD").getString("secret");
+        final String     actualXPS2     = env.getString("XPS2");
+        assertEquals("Invalid value for PASSWORD", "/db/password", actualPassword);
+        assertEquals("Invalid value for XPS2", "Rest", actualXPS2);
     }
 
     /**
      * Test that a JSON configuration without any URIs does not throw an error.
      */
     @Test
-    public void testNoUris() {
-        final String     jsonString = "{\"id\": \"testid\"}";
+    public void testNoUris() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("idonly.json");
         final JSONObject json       = JSONObject.fromObject(jsonString);
+        final MockConfig config     = new MockConfig();
 
-        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
         assertNull("URIs should be null if none were in the JSON config", builder.getApp().getUris());
-
-        when(appConfig.getUris()).thenReturn(Collections.singletonList(
-                new MarathonUri("http://example.com/artifact")));
-        builder = builder.build();
-        assertEquals(1, builder.getApp().getUris().size());
-        assertEquals("http://example.com/artifact", builder.getApp().getUris().iterator().next());
     }
 
     /**
      * Test that existing URIs are not deleted or overwritten on subsequence builds.
      */
     @Test
-    public void testExistingUris() {
-        final String     jsonString = "{\"id\": \"testid\", \"uris\": [\"http://example.com/artifact\"]}";
+    public void testExistingUris() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("uris.json");
         final JSONObject json       = JSONObject.fromObject(jsonString);
 
-        builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
-        assertEquals(1, builder.getJson().getJSONArray("uris").size());
-        assertEquals(1, builder.getApp().getUris().size());
-        assertEquals("http://example.com/artifact", builder.getApp().getUris().iterator().next());
-
-        when(appConfig.getUris()).thenReturn(Collections.singletonList(new MarathonUri("http://example.com/valid_artifact")));
-        builder = builder.build();
+        MarathonBuilder builder = new MarathonBuilderImpl(new MockConfig()).setJson(json).build();
+        assertEquals(2, builder.getJson().getJSONArray("uris").size());
         assertEquals(2, builder.getApp().getUris().size());
+        assertEquals("https://foo.com/setup.py", builder.getApp().getUris().iterator().next());
     }
 
     /**
@@ -161,15 +105,112 @@ public class MarathonBuilderImplTest {
     public void testInvalidTypeUris() {
         final String     jsonString = "{\"id\": \"testid\", \"uris\": \"http://example.com/artifact\"}";
         final JSONObject json       = JSONObject.fromObject(jsonString);
-
-        when(appConfig.getUris()).thenReturn(Collections.singletonList(new MarathonUri("http://example.com/valid_artifact")));
+        final MockConfig config     = new MockConfig();
 
         try {
-            builder = new MarathonBuilderImpl(appConfig).setJson(json).build();
+            new MarathonBuilderImpl(config).setJson(json).build();
             assertTrue("Should throw json parse exception", false);
         } catch (JsonSyntaxException jse) {
             assertTrue(true);
         }
     }
 
+    /**
+     * Test that existing "env" section is not deleted or overwritten on subsequence builds.
+     */
+    @Test
+    public void testExistingEnv() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("env.json");
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+        final MockConfig config     = new MockConfig();
+
+        // add to the env
+        config.env.add(new MarathonVars("example", "test"));
+        // build
+        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
+
+        assertEquals("bar", builder.getApp().getEnv().get("foo"));
+        assertEquals("buzz", builder.getApp().getEnv().get("fizz"));
+        assertEquals("test", builder.getApp().getEnv().get("example"));
+    }
+
+    /**
+     * Test that an empty env section can be added to without issues.
+     */
+    @Test
+    public void testNoEnv() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("idonly.json");
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+        final MockConfig config     = new MockConfig();
+        MarathonBuilder  builder    = new MarathonBuilderImpl(config).setJson(json).build();
+        assertNull("Env should be null", builder.getApp().getEnv());
+
+        config.env.add(new MarathonVars("foo", "bar"));
+        builder = builder.build();
+        assertEquals("foo not set correctly", "bar", builder.getApp().getEnv().get("foo"));
+    }
+
+
+    static class MockConfig implements AppConfig {
+        String              url;
+        String              appId;
+        boolean             forceUpdate;
+        String              docker;
+        boolean             dockerForcePull;
+        String              credentialsId;
+        List<MarathonUri>   uris;
+        List<MarathonLabel> labels;
+        List<MarathonVars>  env;
+
+        MockConfig() {
+            uris = new ArrayList<>();
+            labels = new ArrayList<>();
+            env = new ArrayList<>();
+        }
+
+        @Override
+        public String getAppId() {
+            return appId;
+        }
+
+        @Override
+        public String getUrl() {
+            return url;
+        }
+
+        @Override
+        public boolean getForceUpdate() {
+            return forceUpdate;
+        }
+
+        @Override
+        public String getDocker() {
+            return docker;
+        }
+
+        @Override
+        public boolean getDockerForcePull() {
+            return dockerForcePull;
+        }
+
+        @Override
+        public String getCredentialsId() {
+            return credentialsId;
+        }
+
+        @Override
+        public List<MarathonUri> getUris() {
+            return uris;
+        }
+
+        @Override
+        public List<MarathonLabel> getLabels() {
+            return labels;
+        }
+
+        @Override
+        public List<MarathonVars> getEnv() {
+            return env;
+        }
+    }
 }
