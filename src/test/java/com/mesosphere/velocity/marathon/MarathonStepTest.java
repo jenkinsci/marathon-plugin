@@ -233,6 +233,13 @@ public class MarathonStepTest {
         return String.format(nodeScript, contents, marathonCall);
     }
 
+    /**
+     * Basic workflow job setup.
+     *
+     * @return created job
+     * @throws IOException when filesystem operations have problems
+     * @see #basicSetup(String)
+     */
     private WorkflowJob basicSetup() throws IOException {
         return basicSetup(null);
     }
