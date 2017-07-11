@@ -198,7 +198,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     /**
-     * Construct a Marathon client based on the provided credentialsId and execute an update for ths configuration's
+     * Construct a Marathon client based on the provided credentialsId and execute an update for the configuration's
      * Marathon application.
      *
      * @param credentialsId A string ID for a credential within Jenkin's Credential store
