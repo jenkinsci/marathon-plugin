@@ -20,6 +20,7 @@ import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.MarathonException;
 import mesosphere.marathon.client.model.v2.Container;
 import mesosphere.marathon.client.model.v2.Docker;
+import mesosphere.marathon.client.model.v2.Result;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.apache.commons.collections.CollectionUtils;
@@ -44,11 +45,21 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         this(null);
     }
 
-    public MarathonBuilderImpl(final AppConfig config) {
+    public MarathonBuilderImpl(AppConfig config) {
         this.config = config;
-        this.envVars = new EnvVars();
+        envVars = new EnvVars();
 
         setURLFromConfig();
+    }
+
+    private static void waitForSeconds(int seconds) {
+        if (seconds > 0) {
+            try {
+                Thread.sleep(Math.abs(seconds) * 1000L);
+            } catch (InterruptedException e) {
+                LOGGER.warning("A problem occured while waiting on a thread. The reason is: " + e.getMessage());
+            }
+        }
     }
 
     public List<MarathonUri> getUris() {
@@ -88,10 +99,12 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 LOGGER.warning("Marathon Exception: " + marathonException.getMessage());
 
                 // 401 results may be possible to resolve, others not so much
-                if (marathonException.getStatus() != 401) throw marathonException;
+                if (marathonException.getStatus() != 401) {
+                    throw marathonException;
+                }
                 LOGGER.fine("Received 401 when updating Marathon application.");
 
-                final StringCredentials tokenCredentials = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
+                StringCredentials tokenCredentials = MarathonBuilderUtils.getTokenCredentials(config.getCredentialsId());
                 if (tokenCredentials == null) {
                     LOGGER.warning("Unauthorized (401) and service account credentials are not filled in.");
                     throw marathonException;
@@ -101,7 +114,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
                 // try to determine correct provider and update token
                 // (there is only one provider thus far, so this is simple)
                 boolean                 updatedToken = false;
-                final TokenAuthProvider provider     = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, tokenCredentials);
+                TokenAuthProvider provider = TokenAuthProvider.getTokenAuthProvider(TokenAuthProvider.Providers.DCOS, tokenCredentials);
                 if (provider != null) {
                     updatedToken = provider.updateTokenCredentials(tokenCredentials);
                 }
@@ -118,9 +131,9 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder read(final String filename) throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
-        final String   realFilename = filename != null ? filename : MarathonBuilderUtils.MARATHON_JSON;
-        final FilePath marathonFile = workspace.child(realFilename);
+    public MarathonBuilder read(String filename) throws IOException, InterruptedException, MarathonFileMissingException, MarathonFileInvalidException {
+        String realFilename = filename != null ? filename : MarathonBuilderUtils.MARATHON_JSON;
+        FilePath marathonFile = workspace.child(realFilename);
 
         if (!marathonFile.exists()) {
             throw new MarathonFileMissingException(realFilename);
@@ -128,8 +141,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
             throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory.");
         }
 
-        final String content = marathonFile.readToString();
-        this.json = JSONObject.fromObject(content);
+        String content = marathonFile.readToString();
+        json = JSONObject.fromObject(content);
         return this;
     }
 
@@ -140,37 +153,37 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     @Override
     public JSONObject getJson() {
-        return this.json;
+        return json;
     }
 
     @Override
-    public MarathonBuilder setJson(final JSONObject json) {
+    public MarathonBuilder setJson(JSONObject json) {
         this.json = json;
         return this;
     }
 
     @Override
-    public MarathonBuilder setEnvVars(final EnvVars vars) {
-        this.envVars = vars;
+    public MarathonBuilder setEnvVars(EnvVars vars) {
+        envVars = vars;
         return this;
     }
 
     @Override
-    public MarathonBuilder setConfig(final AppConfig config) {
+    public MarathonBuilder setConfig(AppConfig config) {
         this.config = config;
         return this;
     }
 
     @Override
-    public MarathonBuilder setWorkspace(final FilePath ws) {
-        this.workspace = ws;
+    public MarathonBuilder setWorkspace(FilePath ws) {
+        workspace = ws;
         return this;
     }
 
     @Override
     public MarathonBuilder build() {
         setURLFromConfig();
-        setAppFromJson(this.json);
+        setAppFromJson(json);
 
         setId();
         setDockerImage();
@@ -182,11 +195,12 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     }
 
     @Override
-    public MarathonBuilder toFile(final String filename) throws InterruptedException, IOException, MarathonFileInvalidException {
-        final String   realFilename     = filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON;
-        final FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, envVars));
-        if (renderedFilepath.exists() && renderedFilepath.isDirectory())
+    public MarathonBuilder toFile(String filename) throws InterruptedException, IOException, MarathonFileInvalidException {
+        String realFilename = filename != null ? filename : MarathonBuilderUtils.MARATHON_RENDERED_JSON;
+        FilePath renderedFilepath = workspace.child(Util.replaceMacro(realFilename, envVars));
+        if (renderedFilepath.exists() && renderedFilepath.isDirectory()) {
             throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory; not overwriting.");
+        }
 
         renderedFilepath.write(json.toString(), null);
         return this;
@@ -204,8 +218,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
      * @param credentialsId A string ID for a credential within Jenkin's Credential store
      * @throws MarathonException thrown if the Marathon service has an error
      */
-    private void doUpdate(final String credentialsId) throws MarathonException {
-        final Credentials credentials = MarathonBuilderUtils.getJenkinsCredentials(credentialsId, Credentials.class);
+    private void doUpdate(String credentialsId) throws MarathonException {
+        Credentials credentials = MarathonBuilderUtils.getJenkinsCredentials(credentialsId, Credentials.class);
 
         Marathon client;
 
@@ -218,7 +232,27 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         }
 
         if (client != null) {
-            client.updateApp(getApp().getId(), getApp(), config.getForceUpdate());
+            Result result = client.updateApp(getApp().getId(), getApp(), config.getForceUpdate());
+            if (result != null && result.getDeploymentId() != null) {
+                String deploymentId = result.getDeploymentId();
+                LOGGER.info(String.format("Create deployment with id: '%s'", deploymentId != null ? deploymentId : "null"));
+                long timeout = 5 * 60 * 1000L; // timeout after 5 min
+                waitForDeploymentHasFinished(client, deploymentId, timeout);
+            } else {
+                LOGGER.warning(String.format("Could not create deployment for app: '%s'", getApp() != null ? getApp() : "null"));
+            }
+        }
+    }
+
+    private void waitForDeploymentHasFinished(Marathon client, String deploymentId, long timeout) {
+        LOGGER.info(String.format("Waiting for deployment with id='%s' has finished.", deploymentId != null ? deploymentId : "null"));
+        boolean isActive = true;
+        while (isActive) {
+            waitForSeconds(5);
+            isActive = client.getDeployments().parallelStream() //
+                    .filter(deployment -> deployment.getId().equals(deploymentId)) //
+                    .findFirst() //
+                    .isPresent();
         }
     }
 
@@ -245,7 +279,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         String token;
 
         try {
-            final JSONObject json = JSONObject.fromObject(credentials.getSecret().getPlainText());
+            JSONObject json = JSONObject.fromObject(credentials.getSecret().getPlainText());
             if (json.has("jenkins_token")) {
                 token = json.getString("jenkins_token");
             } else {
@@ -274,18 +308,22 @@ public class MarathonBuilderImpl extends MarathonBuilder {
 
     private void setId() {
         if (config.getAppId() != null && config.getAppId().trim().length() > 0) {
-            final String appId = Util.replaceMacro(config.getAppId(), envVars);
-            if (appId != null && appId.trim().length() > 0) getApp().setId(appId);
+            String appId = Util.replaceMacro(config.getAppId(), envVars);
+            if (appId != null && appId.trim().length() > 0) {
+                getApp().setId(appId);
+            }
         }
     }
 
     private void setURLFromConfig() {
-        if (config.getUrl() != null) setURL(Util.replaceMacro(config.getUrl(), envVars));
+        if (config.getUrl() != null) {
+            setURL(Util.replaceMacro(config.getUrl(), envVars));
+        }
     }
 
     private void setDockerImage() {
         if (config.getDocker() != null && config.getDocker().trim().length() > 0) {
-            final String imageName = Util.replaceMacro(config.getDocker(), envVars);
+            String imageName = Util.replaceMacro(config.getDocker(), envVars);
 
             if (imageName == null || imageName.trim().length() == 0) {
                 return;
@@ -313,7 +351,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     private void setUris() {
         if (CollectionUtils.isNotEmpty(config.getUris())) {
             for (MarathonUri uri : config.getUris()) {
-                final String replacedUri = Util.replaceMacro(uri.getUri(), envVars);
+                String replacedUri = Util.replaceMacro(uri.getUri(), envVars);
                 getApp().addUri(replacedUri);
             }
         }
@@ -322,8 +360,8 @@ public class MarathonBuilderImpl extends MarathonBuilder {
     private void setLabels() {
         if (CollectionUtils.isNotEmpty(config.getLabels())) {
             for (MarathonLabel label : config.getLabels()) {
-                final String labelName  = Util.replaceMacro(label.getName(), envVars);
-                final String labelValue = Util.replaceMacro(label.getValue(), envVars);
+                String labelName = Util.replaceMacro(label.getName(), envVars);
+                String labelValue = Util.replaceMacro(label.getValue(), envVars);
 
                 getApp().addLabel(labelName, labelValue);
             }
