@@ -25,14 +25,14 @@ public class MarathonBuilderImplTest {
 
     @Before
     public void setUp() throws IOException {
-        httpServer = new MockWebServer();
-        httpServer.start();
+        this.httpServer = new MockWebServer();
+        this.httpServer.start();
     }
 
     @After
     public void tearDown() throws IOException {
-        httpServer.shutdown();
-        httpServer = null;
+        this.httpServer.shutdown();
+        this.httpServer = null;
     }
 
     /**
@@ -47,25 +47,25 @@ public class MarathonBuilderImplTest {
         MockConfig config  = new MockConfig();
         String     payload = TestUtils.loadFixture("allfields.json");
         JSONObject json    = JSONObject.fromObject(payload);
-        config.url = TestUtils.getHttpAddresss(httpServer);
+        config.url = TestUtils.getHttpAddresss(this.httpServer);
 
-        TestUtils.enqueueJsonResponse(httpServer, "{}");
+        TestUtils.enqueueJsonResponse(this.httpServer, "{}");
         new MarathonBuilderImpl(config)
                 .setJson(json)
                 .build()
                 .update();
-        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
+        JSONObject jsonRequest = TestUtils.jsonFromRequest(this.httpServer);
         assertEquals("JSON objects are different", json, jsonRequest);
 
         // secrets
-        final JSONObject secrets = jsonRequest.getJSONObject("secrets");
-        final JSONObject secret3 = secrets.getJSONObject("secret3");
+        JSONObject secrets = jsonRequest.getJSONObject("secrets");
+        JSONObject secret3 = secrets.getJSONObject("secret3");
         assertEquals("Wrong source for secret3", "/foo2", secret3.getString("source"));
 
         // secrets in env
-        final JSONObject env            = jsonRequest.getJSONObject("env");
-        final String     actualPassword = env.getJSONObject("PASSWORD").getString("secret");
-        final String     actualXPS2     = env.getString("XPS2");
+        JSONObject env = jsonRequest.getJSONObject("env");
+        String actualPassword = env.getJSONObject("PASSWORD").getString("secret");
+        String actualXPS2 = env.getString("XPS2");
         assertEquals("Invalid value for PASSWORD", "/db/password", actualPassword);
         assertEquals("Invalid value for XPS2", "Rest", actualXPS2);
     }
@@ -75,9 +75,9 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testNoUris() throws IOException {
-        final String     jsonString = TestUtils.loadFixture("idonly.json");
-        final JSONObject json       = JSONObject.fromObject(jsonString);
-        final MockConfig config     = new MockConfig();
+        String jsonString = TestUtils.loadFixture("idonly.json");
+        JSONObject json = JSONObject.fromObject(jsonString);
+        MockConfig config = new MockConfig();
 
         MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
         assertNull("URIs should be null if none were in the JSON config", builder.getApp().getUris());
@@ -88,8 +88,8 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testExistingUris() throws IOException {
-        final String     jsonString = TestUtils.loadFixture("uris.json");
-        final JSONObject json       = JSONObject.fromObject(jsonString);
+        String jsonString = TestUtils.loadFixture("uris.json");
+        JSONObject json = JSONObject.fromObject(jsonString);
 
         MarathonBuilder builder = new MarathonBuilderImpl(new MockConfig()).setJson(json).build();
         assertEquals(2, builder.getJson().getJSONArray("uris").size());
@@ -103,9 +103,9 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testInvalidTypeUris() {
-        final String     jsonString = "{\"id\": \"testid\", \"uris\": \"http://example.com/artifact\"}";
-        final JSONObject json       = JSONObject.fromObject(jsonString);
-        final MockConfig config     = new MockConfig();
+        String jsonString = "{\"id\": \"testid\", \"uris\": \"http://example.com/artifact\"}";
+        JSONObject json = JSONObject.fromObject(jsonString);
+        MockConfig config = new MockConfig();
 
         try {
             new MarathonBuilderImpl(config).setJson(json).build();
@@ -120,9 +120,9 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testExistingEnv() throws IOException {
-        final String     jsonString = TestUtils.loadFixture("env.json");
-        final JSONObject json       = JSONObject.fromObject(jsonString);
-        final MockConfig config     = new MockConfig();
+        String jsonString = TestUtils.loadFixture("env.json");
+        JSONObject json = JSONObject.fromObject(jsonString);
+        MockConfig config = new MockConfig();
 
         // add to the env
         config.env.add(new MarathonVars("example", "test"));
@@ -139,9 +139,9 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testNoEnv() throws IOException {
-        final String     jsonString = TestUtils.loadFixture("idonly.json");
-        final JSONObject json       = JSONObject.fromObject(jsonString);
-        final MockConfig config     = new MockConfig();
+        String jsonString = TestUtils.loadFixture("idonly.json");
+        JSONObject json = JSONObject.fromObject(jsonString);
+        MockConfig config = new MockConfig();
         MarathonBuilder  builder    = new MarathonBuilderImpl(config).setJson(json).build();
         assertNull("Env should be null", builder.getApp().getEnv());
 
@@ -161,56 +161,62 @@ public class MarathonBuilderImplTest {
         List<MarathonUri>   uris;
         List<MarathonLabel> labels;
         List<MarathonVars>  env;
+        long timeout;
 
         MockConfig() {
-            uris = new ArrayList<>();
-            labels = new ArrayList<>();
-            env = new ArrayList<>();
+            this.uris = new ArrayList<>();
+            this.labels = new ArrayList<>();
+            this.env = new ArrayList<>();
         }
 
         @Override
         public String getAppId() {
-            return appId;
+            return this.appId;
         }
 
         @Override
         public String getUrl() {
-            return url;
+            return this.url;
         }
 
         @Override
         public boolean getForceUpdate() {
-            return forceUpdate;
+            return this.forceUpdate;
         }
 
         @Override
         public String getDocker() {
-            return docker;
+            return this.docker;
         }
 
         @Override
         public boolean getDockerForcePull() {
-            return dockerForcePull;
+            return this.dockerForcePull;
         }
 
         @Override
         public String getCredentialsId() {
-            return credentialsId;
+            return this.credentialsId;
         }
 
         @Override
         public List<MarathonUri> getUris() {
-            return uris;
+            return this.uris;
         }
 
         @Override
         public List<MarathonLabel> getLabels() {
-            return labels;
+            return this.labels;
         }
 
         @Override
         public List<MarathonVars> getEnv() {
-            return env;
+            return this.env;
+        }
+
+        @Override
+        public long getTimeout() {
+            return this.timeout;
         }
     }
 }
