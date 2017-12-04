@@ -221,10 +221,9 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         }
 
         if (client != null) {
-            long timeout = 5 * 60 * 1000L; // timeout after 5 min
-            boolean success = new MarathonApiImpl().update(client, getApp(), this.config.getForceUpdate(), timeout);
+            boolean success = new MarathonApiImpl().update(client, getApp(), this.config.getForceUpdate(), this.config.getTimeout());
             if (!success) {
-                throw new MarathonException(408, String.format("The deployment timed out after %dms", timeout));
+                throw new MarathonException(408, String.format("The deployment timed out after %dms", this.config.getTimeout()));
             }
         }
     }
