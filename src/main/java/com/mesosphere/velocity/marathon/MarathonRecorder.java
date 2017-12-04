@@ -56,33 +56,35 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       String              filename;
     private       String              credentialsId;
     private       boolean             forceUpdate;
+    private long timeout;
 
     @DataBoundConstructor
-    public MarathonRecorder(final String url) {
+    public MarathonRecorder(String url) {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
 
-        this.uris = new ArrayList<MarathonUri>(5);
-        this.labels = new ArrayList<MarathonLabel>(5);
-        this.env = new ArrayList<MarathonVars>(5);
+        this.uris = new ArrayList<>(5);
+        this.labels = new ArrayList<>(5);
+        this.env = new ArrayList<>(5);
     }
 
     public String getAppid() {
-        return appid;
+        return this.appid;
     }
 
     @DataBoundSetter
-    public void setAppid(@Nonnull final String appid) {
+    public void setAppid(@Nonnull String appid) {
         this.appid = appid;
     }
 
     public String getFilename() {
-        return filename;
+        return this.filename;
     }
 
     @DataBoundSetter
-    public void setFilename(@Nonnull final String filename) {
-        if (filename.trim().length() > 0)
+    public void setFilename(@Nonnull String filename) {
+        if (filename.trim().length() > 0) {
             this.filename = filename;
+        }
     }
 
     @Override
@@ -108,21 +110,21 @@ public class MarathonRecorder extends Recorder implements AppConfig {
      * @param logger a build's logger
      * @param text   message to log
      */
-    private void log(final PrintStream logger, final String text) {
+    private void log(PrintStream logger, String text) {
         logger.println("[Marathon] " + text);
     }
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener)
             throws InterruptedException, IOException {
-        final boolean     buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
-        final EnvVars     envVars      = build.getEnvironment(listener);
-        final PrintStream logger       = listener.getLogger();
+        boolean buildSucceed = build.getResult() == null || build.getResult() == Result.SUCCESS;
+        EnvVars envVars = build.getEnvironment(listener);
+        PrintStream logger = listener.getLogger();
         envVars.overrideAll(build.getBuildVariables());
 
         if (buildSucceed) {
             try {
-                final MarathonBuilder builder = MarathonBuilder.getBuilder(this)
+                MarathonBuilder builder = MarathonBuilder.getBuilder(this)
                         .setEnvVars(envVars).setWorkspace(build.getWorkspace())
                         .read(this.filename)
                         .build().toFile();
@@ -182,66 +184,83 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         return this.appid;
     }
 
+    @Override
     public String getUrl() {
-        return url;
+        return this.url;
     }
 
     @Override
     public boolean getForceUpdate() {
-        return forceUpdate;
+        return this.forceUpdate;
     }
 
+    @Override
     public String getDocker() {
-        return docker;
+        return this.docker;
     }
 
+    @DataBoundSetter
+    public void setDocker(@Nonnull String docker) {
+        this.docker = docker;
+    }
+
+    @Override
     public boolean getDockerForcePull() {
-        return dockerForcePull;
+        return this.dockerForcePull;
     }
 
+    @DataBoundSetter
+    public void setDockerForcePull(@Nonnull boolean dockerForcePull) {
+        this.dockerForcePull = dockerForcePull;
+    }
+
+    @Override
     public String getCredentialsId() {
         return this.credentialsId;
     }
 
     @DataBoundSetter
-    public void setCredentialsId(final String credentialsId) {
+    public void setCredentialsId(String credentialsId) {
         this.credentialsId = credentialsId;
     }
 
+    @Override
     public List<MarathonUri> getUris() {
-        return uris;
+        return this.uris;
     }
 
     @DataBoundSetter
-    public void setUris(final List<MarathonUri> uris) {
+    public void setUris(List<MarathonUri> uris) {
         this.uris = uris;
     }
 
+    @Override
     public List<MarathonLabel> getLabels() {
-        return labels;
+        return this.labels;
     }
 
     @DataBoundSetter
-    public void setLabels(final List<MarathonLabel> labels) {
+    public void setLabels(List<MarathonLabel> labels) {
         this.labels = labels;
     }
 
-    @DataBoundSetter
-    public void setDocker(@Nonnull final String docker) {
-        this.docker = docker;
-    }
-
-    @DataBoundSetter
-    public void setDockerForcePull(@Nonnull final boolean dockerForcePull) {
-        this.dockerForcePull = dockerForcePull;
-    }
-
+    @Override
     public List<MarathonVars> getEnv() {
-        return env;
+        return this.env;
+    }
+
+    @Override
+    public long getTimeout() {
+        return this.timeout;
     }
 
     @DataBoundSetter
-    public void setEnvironment(final List<MarathonVars> env) {
+    public void setTimeout(long timeout) {
+        this.timeout = timeout;
+    }
+
+    @DataBoundSetter
+    public void setEnvironment(List<MarathonVars> env) {
         this.env = env;
     }
 
@@ -255,7 +274,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setForceUpdate(final boolean forceUpdate) {
+    public void setForceUpdate(boolean forceUpdate) {
         this.forceUpdate = forceUpdate;
     }
 
@@ -264,7 +283,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             load();
         }
 
-        private boolean isUrl(final String url) {
+        private boolean isUrl(String url) {
             boolean valid = false;
 
             if (url != null && url.length() > 0) {
@@ -289,18 +308,28 @@ public class MarathonRecorder extends Recorder implements AppConfig {
             );
         }
 
-        private FormValidation verifyUrl(final String url) {
-            if (!isUrl(url))
+        private FormValidation verifyUrl(String url) {
+            if (!isUrl(url)) {
                 return FormValidation.error("Not a valid URL");
+            }
             return FormValidation.ok();
         }
 
-        public FormValidation doCheckUrl(@QueryParameter final String value) {
+        public FormValidation doCheckUrl(@QueryParameter String value) {
             return verifyUrl(value);
         }
 
-        public FormValidation doCheckUri(@QueryParameter final String value) {
+        public FormValidation doCheckUri(@QueryParameter String value) {
             return verifyUrl(value);
+        }
+
+        public FormValidation doCheckTimeout(@QueryParameter String value) {
+            try {
+                Long.getLong(value);
+                return FormValidation.ok();
+            } catch (NumberFormatException e) {
+                return FormValidation.error("Invalid number format.");
+            }
         }
 
         @Override

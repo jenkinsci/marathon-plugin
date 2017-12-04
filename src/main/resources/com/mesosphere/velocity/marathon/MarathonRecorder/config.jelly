@@ -13,6 +13,10 @@
         <f:checkbox/>
     </f:entry>
 
+    <f:entry title="${%Timeout}" field="timeout">
+        <f:textbox/>
+    </f:entry>
+
         <f:advanced>
             <f:entry title="${%Definition File}" field="filename">
                 <f:textbox />

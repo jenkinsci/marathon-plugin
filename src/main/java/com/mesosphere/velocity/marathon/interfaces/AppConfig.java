@@ -73,4 +73,11 @@ public interface AppConfig {
      * @return list of environment variables
      */
     List<MarathonVars> getEnv();
+
+    /**
+     * Return the value after a deployment times out
+     *
+     * @return
+     */
+    long getTimeout();
 }
