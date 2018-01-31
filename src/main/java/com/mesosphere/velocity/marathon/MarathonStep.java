@@ -44,14 +44,14 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     private       String              filename;
     private       String              credentialsId;
     private       boolean             forceUpdate;
-    private long timeout;
+    private       long                timeout;
 
     @DataBoundConstructor
     public MarathonStep(String url) {
         this.url = MarathonBuilderUtils.rmSlashFromUrl(url);
-        this.uris = new ArrayList<>(5);
-        this.labels = new ArrayList<>(5);
-        this.env = new ArrayList<>(5);
+        this.uris = new ArrayList<MarathonUri>(5);
+        this.labels = new ArrayList<MarathonLabel>(5);
+        this.env = new ArrayList<MarathonVars>(5);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
 
     @Override
     public String getUrl() {
-        return this.url;
+        return url;
     }
 
     @Override
@@ -70,21 +70,21 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setForceUpdate(boolean forceUpdate) {
+    public void setForceUpdate(final boolean forceUpdate) {
         this.forceUpdate = forceUpdate;
     }
 
     @Override
     public List<MarathonVars> getEnv() {
-        List<MarathonVars> marathonVarsList = new ArrayList<>(this.env.size());
-        for (MarathonVars envElem : this.env) {
+        final List<MarathonVars> marathonVarsList = new ArrayList<>(this.env.size());
+        for (final MarathonVars envElem : this.env) {
             marathonVarsList.add(new MarathonVars(envElem.getName(), envElem.getValue()));
         }
         return marathonVarsList;
     }
 
     @DataBoundSetter
-    public void setEnv(List<MarathonVars> env) {
+    public void setEnv(final List<MarathonVars> env) {
         this.env = env;
     }
 
@@ -94,7 +94,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setDocker(String docker) {
+    public void setDocker(final String docker) {
         this.docker = docker;
     }
 
@@ -104,7 +104,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setDockerForcePull(boolean dockerForcePull) {
+    public void setDockerForcePull(final boolean dockerForcePull) {
         this.dockerForcePull = dockerForcePull;
     }
 
@@ -114,35 +114,35 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setCredentialsId(String credentialsId) {
+    public void setCredentialsId(final String credentialsId) {
         this.credentialsId = credentialsId;
     }
 
     @Override
     public List<MarathonUri> getUris() {
-        List<MarathonUri> marathonUris = new ArrayList<>(this.uris.size());
-        for (MarathonUri u : this.uris) {
+        final List<MarathonUri> marathonUris = new ArrayList<>(this.uris.size());
+        for (final MarathonUri u : this.uris) {
             marathonUris.add(new MarathonUri(u.getUri()));
         }
         return marathonUris;
     }
 
     @DataBoundSetter
-    public void setUris(List<MarathonUri> uris) {
+    public void setUris(final List<MarathonUri> uris) {
         this.uris = uris;
     }
 
     @Override
     public List<MarathonLabel> getLabels() {
-        List<MarathonLabel> marathonLabels = new ArrayList<>(this.labels.size());
-        for (MarathonLabel label : this.labels) {
+        final List<MarathonLabel> marathonLabels = new ArrayList<>(this.labels.size());
+        for (final MarathonLabel label : this.labels) {
             marathonLabels.add(new MarathonLabel(label.getName(), label.getValue()));
         }
         return marathonLabels;
     }
 
     @DataBoundSetter
-    public void setLabels(List<MarathonLabel> labels) {
+    public void setLabels(final List<MarathonLabel> labels) {
         this.labels = labels;
     }
 
@@ -165,7 +165,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
      */
     @Deprecated
     @DataBoundSetter
-    public void setAppid(String appid) {
+    public void setAppid(final String appid) {
         this.appid = appid;
     }
 
@@ -174,10 +174,9 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setFilename(@Nonnull String filename) {
-        if (filename.trim().length() > 0) {
+    public void setFilename(@Nonnull final String filename) {
+        if (filename.trim().length() > 0)
             this.filename = filename;
-        }
     }
 
     @Override
@@ -186,7 +185,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setTimeout(long timeout) {
+    public void setTimeout(final long timeout) {
         this.timeout = timeout;
     }
 
@@ -207,7 +206,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
      * @since 1.3.3
      */
     @DataBoundSetter
-    public void setId(String id) {
+    public void setId(final String id) {
         this.id = id;
     }
 
@@ -220,11 +219,11 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
             super(MarathonStepExecution.class);
         }
 
-        public FormValidation doCheckUrl(@QueryParameter String value) {
+        public FormValidation doCheckUrl(@QueryParameter final String value) {
             return this.delegate.doCheckUrl(value);
         }
 
-        public FormValidation doCheckUri(@QueryParameter String value) {
+        public FormValidation doCheckUri(@QueryParameter final String value) {
             return this.delegate.doCheckUri(value);
         }
 
@@ -277,7 +276,7 @@ public class MarathonStep extends AbstractStepImpl implements AppConfig {
                         .toFile()
                         .update();
             } catch (MarathonException | MarathonFileInvalidException | MarathonFileMissingException me) {
-                String errorMsg = String.format("[Marathon] %s", me.getMessage());
+                final String errorMsg = String.format("[Marathon] %s", me.getMessage());
                 this.listener.error(errorMsg);
                 this.run.setResult(Result.FAILURE);
             }

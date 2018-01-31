@@ -77,7 +77,7 @@ public interface AppConfig {
     /**
      * Return the value after a deployment times out
      *
-     * @return
+     * @return timeout value in milliseconds
      */
     long getTimeout();
 }

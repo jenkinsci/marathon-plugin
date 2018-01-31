@@ -47,25 +47,25 @@ public class MarathonBuilderImplTest {
         MockConfig config  = new MockConfig();
         String     payload = TestUtils.loadFixture("allfields.json");
         JSONObject json    = JSONObject.fromObject(payload);
-        config.url = TestUtils.getHttpAddresss(this.httpServer);
+        config.url = TestUtils.getHttpAddresss(httpServer);
 
-        TestUtils.enqueueJsonResponse(this.httpServer, "{}");
+        TestUtils.enqueueJsonResponse(httpServer, "{}");
         new MarathonBuilderImpl(config)
                 .setJson(json)
                 .build()
                 .update();
-        JSONObject jsonRequest = TestUtils.jsonFromRequest(this.httpServer);
+        final JSONObject jsonRequest = TestUtils.jsonFromRequest(httpServer);
         assertEquals("JSON objects are different", json, jsonRequest);
 
         // secrets
-        JSONObject secrets = jsonRequest.getJSONObject("secrets");
-        JSONObject secret3 = secrets.getJSONObject("secret3");
+        final JSONObject secrets = jsonRequest.getJSONObject("secrets");
+        final JSONObject secret3 = secrets.getJSONObject("secret3");
         assertEquals("Wrong source for secret3", "/foo2", secret3.getString("source"));
 
         // secrets in env
-        JSONObject env = jsonRequest.getJSONObject("env");
-        String actualPassword = env.getJSONObject("PASSWORD").getString("secret");
-        String actualXPS2 = env.getString("XPS2");
+        final JSONObject env = jsonRequest.getJSONObject("env");
+        final String actualPassword = env.getJSONObject("PASSWORD").getString("secret");
+        final String actualXPS2 = env.getString("XPS2");
         assertEquals("Invalid value for PASSWORD", "/db/password", actualPassword);
         assertEquals("Invalid value for XPS2", "Rest", actualXPS2);
     }
@@ -75,11 +75,11 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testNoUris() throws IOException {
-        String jsonString = TestUtils.loadFixture("idonly.json");
-        JSONObject json = JSONObject.fromObject(jsonString);
-        MockConfig config = new MockConfig();
+        final String jsonString = TestUtils.loadFixture("idonly.json");
+        final JSONObject json = JSONObject.fromObject(jsonString);
+        final MockConfig config = new MockConfig();
 
-        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
+        final MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
         assertNull("URIs should be null if none were in the JSON config", builder.getApp().getUris());
     }
 
@@ -88,10 +88,10 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testExistingUris() throws IOException {
-        String jsonString = TestUtils.loadFixture("uris.json");
-        JSONObject json = JSONObject.fromObject(jsonString);
+        final String jsonString = TestUtils.loadFixture("uris.json");
+        final JSONObject json = JSONObject.fromObject(jsonString);
 
-        MarathonBuilder builder = new MarathonBuilderImpl(new MockConfig()).setJson(json).build();
+        final MarathonBuilder builder = new MarathonBuilderImpl(new MockConfig()).setJson(json).build();
         assertEquals(2, builder.getJson().getJSONArray("uris").size());
         assertEquals(2, builder.getApp().getUris().size());
         assertEquals("https://foo.com/setup.py", builder.getApp().getUris().iterator().next());
@@ -101,18 +101,13 @@ public class MarathonBuilderImplTest {
      * Test that an invalid "uris" format causes a JSON exception. The "uris" field should
      * be an array.
      */
-    @Test
+    @Test(expected = JsonSyntaxException.class)
     public void testInvalidTypeUris() {
-        String jsonString = "{\"id\": \"testid\", \"uris\": \"http://example.com/artifact\"}";
-        JSONObject json = JSONObject.fromObject(jsonString);
-        MockConfig config = new MockConfig();
+        final String jsonString = "{\"id\": \"testid\", \"uris\": \"http://example.com/artifact\"}";
+        final JSONObject json = JSONObject.fromObject(jsonString);
+        final MockConfig config = new MockConfig();
 
-        try {
-            new MarathonBuilderImpl(config).setJson(json).build();
-            assertTrue("Should throw json parse exception", false);
-        } catch (JsonSyntaxException jse) {
-            assertTrue(true);
-        }
+        new MarathonBuilderImpl(config).setJson(json).build();
     }
 
     /**
@@ -120,14 +115,14 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testExistingEnv() throws IOException {
-        String jsonString = TestUtils.loadFixture("env.json");
-        JSONObject json = JSONObject.fromObject(jsonString);
-        MockConfig config = new MockConfig();
+        final String jsonString = TestUtils.loadFixture("env.json");
+        final JSONObject json = JSONObject.fromObject(jsonString);
+        final MockConfig config = new MockConfig();
 
         // add to the env
         config.env.add(new MarathonVars("example", "test"));
         // build
-        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
+        final MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
 
         assertEquals("bar", builder.getApp().getEnv().get("foo"));
         assertEquals("buzz", builder.getApp().getEnv().get("fizz"));
@@ -139,9 +134,9 @@ public class MarathonBuilderImplTest {
      */
     @Test
     public void testNoEnv() throws IOException {
-        String jsonString = TestUtils.loadFixture("idonly.json");
-        JSONObject json = JSONObject.fromObject(jsonString);
-        MockConfig config = new MockConfig();
+        final String jsonString = TestUtils.loadFixture("idonly.json");
+        final JSONObject json = JSONObject.fromObject(jsonString);
+        final MockConfig config = new MockConfig();
         MarathonBuilder  builder    = new MarathonBuilderImpl(config).setJson(json).build();
         assertNull("Env should be null", builder.getApp().getEnv());
 
@@ -161,7 +156,7 @@ public class MarathonBuilderImplTest {
         List<MarathonUri>   uris;
         List<MarathonLabel> labels;
         List<MarathonVars>  env;
-        long timeout;
+        long                timeout;
 
         MockConfig() {
             this.uris = new ArrayList<>();

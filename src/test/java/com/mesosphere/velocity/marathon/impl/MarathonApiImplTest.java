@@ -9,6 +9,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -43,12 +44,11 @@ public class MarathonApiImplTest {
         when(result.getDeploymentId()).thenReturn(TEST_DEPLOYMENT_ID);
         when(this.client.updateApp(this.app.getId(), this.app, forceUpdate)).thenReturn(result);
         // when
-        boolean success = this.marathonApi.update(this.client, this.app, forceUpdate, timeout);
+        this.marathonApi.update(this.client, this.app, forceUpdate, timeout);
         // then
-        assertTrue(success);
     }
 
-    @Test
+    @Test(expected = TimeoutException.class) //then
     public void testUpdate_deploymentTimedout() throws Exception {
         // given
         boolean forceUpdate = DEFAULT_TEST_FORCEUPDATE;
@@ -61,9 +61,7 @@ public class MarathonApiImplTest {
         when(deployment.getId()).thenReturn(TEST_DEPLOYMENT_ID);
         when(this.client.getDeployments()).thenReturn(Arrays.asList(deployment));
         // when
-        boolean success = this.marathonApi.update(this.client, this.app, forceUpdate, timeout);
-        // then
-        assertFalse(success);
+        this.marathonApi.update(this.client, this.app, forceUpdate, timeout);
     }
 
     @Test(expected = IllegalArgumentException.class) // then
