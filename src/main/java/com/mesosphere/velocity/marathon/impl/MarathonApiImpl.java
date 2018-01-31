@@ -16,12 +16,12 @@ public class MarathonApiImpl implements MarathonApi {
     }
 
     /**
-     * Updating an app. If the timeout set by a value > 0, the method will wait until the deployment is done.
+     * Updating an app. If the timeout set by a value greater then 0, the method will wait until the deployment is done.
      *
-     * @param client
-     * @param app
-     * @param forceUpdate
-     * @param timeout
+     * @param client Marathon client
+     * @param app Marathon app model
+     * @param forceUpdate force updating a deployment of a service
+     * @param timeout number of milliseconds after the deployment should time out
      * @throws TimeoutException the deployment timed out after the given timeout value
      */
     @Override
