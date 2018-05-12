@@ -134,6 +134,55 @@ public class MarathonBuilderImplTest {
         assertEquals("test", builder.getApp().getEnv().get("example"));
     }
 
+
+    /**
+     * Test container type detection within template JSON
+     */
+    @Test
+    public void testSimpleContainerTypeDetection() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("mesos-containertype.json");
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+        final MockConfig config     = new MockConfig();
+
+        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
+
+        assertEquals("MESOS", builder.getApp().getContainer().getType());
+    }
+
+
+    /**
+     * Test container type setup through configuration
+     */
+    @Test
+    public void testContainerTypeConfiguration() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("idonly.json");
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+        final MockConfig config     = new MockConfig();
+
+        config.docker = "test";
+        config.containerType = "MESOS";
+
+        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
+
+        assertEquals("MESOS", builder.getApp().getContainer().getType());
+    }
+
+    /**
+     * Test default container type
+     */
+    @Test
+    public void testDefaultContainerType() throws IOException {
+        final String     jsonString = TestUtils.loadFixture("idonly.json");
+        final JSONObject json       = JSONObject.fromObject(jsonString);
+        final MockConfig config     = new MockConfig();
+
+        config.docker = "test";
+
+        MarathonBuilder builder = new MarathonBuilderImpl(config).setJson(json).build();
+
+        assertEquals("DOCKER", builder.getApp().getContainer().getType());
+    }
+
     /**
      * Test that an empty env section can be added to without issues.
      */
@@ -156,6 +205,7 @@ public class MarathonBuilderImplTest {
         String              appId;
         boolean             forceUpdate;
         String              docker;
+        String              containerType;
         boolean             dockerForcePull;
         String              credentialsId;
         List<MarathonUri>   uris;
@@ -176,6 +226,11 @@ public class MarathonBuilderImplTest {
         @Override
         public String getUrl() {
             return url;
+        }
+
+        @Override
+        public String getContainerType() {
+            return containerType;
         }
 
         @Override

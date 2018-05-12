@@ -1,4 +1,4 @@
-# Marathon Plugin for Jenkins [![Build Status](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=marathon-plugin-publish-master)](https://jenkins.mesosphere.com/service/jenkins/job/marathon-plugin-publish-master/)
+# Marathon Plugin for Jenkins  [![Build Status](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=marathon-jenkins-plugin/marathon-plugin-publish-master)](https://jenkins.mesosphere.com/service/jenkins/job/marathon-plugin-publish-master/)
 
 ## Background
 
@@ -50,10 +50,16 @@ marathon(
     forceUpdate: false,
     id: 'someid',
     docker: 'mesosphere/jenkins-dev',
+    containerType: 'DOCKER', // optional
     dockerForcePull: true)
 ```
 
 `url` is required and this still depends on a local "marathon.json" file.
+
+## Container type support
+
+The container type (MESOS, DOCKER) will be determined from the JSON template if possible, if not, it can also be defined in the plugin
+configuration or in the pipeline step call. If not defined, "DOCKER" will be used as the default value.
 
 ## License
 
