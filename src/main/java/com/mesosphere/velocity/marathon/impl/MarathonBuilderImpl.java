@@ -298,8 +298,19 @@ public class MarathonBuilderImpl extends MarathonBuilder {
             if (getApp().getContainer().getDocker() == null) {
                 getApp().getContainer().setDocker(new Docker());
             }
-
-            getApp().getContainer().setType("DOCKER");
+            String containerType = "DOCKER"; // default
+            // if it's already present in the given json template, use the container
+            // type defined there
+            if (json.containsKey("container")) {
+                JSONObject container = json.getJSONObject("container");
+                if (container.containsKey("type")) {
+                    containerType = container.getString("type");
+                }
+            } else if (config.getContainerType() != null) {
+                // if it's not, try to get one from configuration
+                containerType = config.getContainerType();
+            }
+            getApp().getContainer().setType(containerType);
             getApp().getContainer().getDocker().setImage(imageName);
             getApp().getContainer().getDocker().setForcePullImage(config.getDockerForcePull());
         }

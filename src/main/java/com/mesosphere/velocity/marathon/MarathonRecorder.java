@@ -52,6 +52,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     private       List<MarathonVars>  env;
     private       String              appid;
     private       String              docker;
+    private       String              containerType;
     private       boolean             dockerForcePull;
     private       String              filename;
     private       String              credentialsId;
@@ -195,6 +196,10 @@ public class MarathonRecorder extends Recorder implements AppConfig {
         return docker;
     }
 
+    public String getContainerType() {
+        return containerType;
+    }
+
     public boolean getDockerForcePull() {
         return dockerForcePull;
     }
@@ -229,6 +234,11 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     @DataBoundSetter
     public void setDocker(@Nonnull final String docker) {
         this.docker = docker;
+    }
+
+    @DataBoundSetter
+    public void setContainerType(@Nonnull final String containerType) {
+        this.containerType = containerType;
     }
 
     @DataBoundSetter

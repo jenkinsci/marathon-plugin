@@ -32,6 +32,13 @@ public interface AppConfig {
     boolean getForceUpdate();
 
     /**
+     * Get the configured container type.
+     *
+     * @return Container type ("MESOS" or "DOCKER")
+     */
+    String getContainerType();
+
+    /**
      * Get the configured docker image name.
      *
      * @return Docker image name
