@@ -17,6 +17,13 @@
         <f:checkbox/>
     </f:entry>
 
+    <f:entry title="${%Container type}" field="containerType">
+        <select name="containerType">
+            <option value="DOCKER">DOCKER</option>
+            <option value="MESOS">MESOS</option>
+        </select>
+    </f:entry>
+
         <f:advanced>
             <f:entry title="${%Definition File}" field="filename">
                 <f:textbox/>
