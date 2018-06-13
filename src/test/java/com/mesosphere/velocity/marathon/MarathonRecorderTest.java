@@ -274,7 +274,7 @@ public class MarathonRecorderTest {
 
         envs.add(new MarathonVars("foo", "bar-${BUILD_NUMBER}"));
         envs.add(new MarathonVars("fizz", "buzz-$BUILD_NUMBER"));
-        marathonRecorder.setEnvironment(envs);
+        marathonRecorder.setEnv(envs);
 
         final FreeStyleProject project = basicSetup(marathonRecorder);
         final FreeStyleBuild   build   = basicRunWithSuccess(project);

@@ -251,7 +251,7 @@ public class MarathonRecorder extends Recorder implements AppConfig {
     }
 
     @DataBoundSetter
-    public void setEnvironment(final List<MarathonVars> env) {
+    public void setEnv(final List<MarathonVars> env) {
         this.env = env;
     }
 
