@@ -188,7 +188,7 @@ public class MarathonBuilderImpl extends MarathonBuilder {
         if (renderedFilepath.exists() && renderedFilepath.isDirectory())
             throw new MarathonFileInvalidException("File '" + realFilename + "' is a directory; not overwriting.");
 
-        renderedFilepath.write(json.toString(), null);
+        renderedFilepath.write(getApp().toString(), null);
         return this;
     }
 
