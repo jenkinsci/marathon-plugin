@@ -58,7 +58,7 @@
         <jenkins.version>1.642.1</jenkins.version>
         <auth0-jwt.version>2.2.1</auth0-jwt.version>
         <credentials.version>1.22</credentials.version>
-        <http.version>4.5.1</http.version>
+        <http.version>4.5.13</http.version>
         <junit.version>4.11</junit.version>
         <marathon.client.version>0.6.0</marathon.client.version>
         <mockito.version>1.10.19</mockito.version>
